@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Express 2013 for Windows Desktop
+VisualStudioVersion = 12.0.30501.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SSE Hand Relief Very Nice", "SSE Hand Relief Very Nice\SSE Hand Relief Very Nice.vcxproj", "{9DAFD33A-65E3-46F3-8E91-FDF721E6960D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9DAFD33A-65E3-46F3-8E91-FDF721E6960D}.Debug|Win32.ActiveCfg = Debug|Win32
+		{9DAFD33A-65E3-46F3-8E91-FDF721E6960D}.Debug|Win32.Build.0 = Debug|Win32
+		{9DAFD33A-65E3-46F3-8E91-FDF721E6960D}.Release|Win32.ActiveCfg = Release|Win32
+		{9DAFD33A-65E3-46F3-8E91-FDF721E6960D}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
