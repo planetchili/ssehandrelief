@@ -41,6 +41,8 @@ private:
 	KeyboardClient kbd;
 	MouseClient mouse;
 	Surface dice;
+	Surface bees;
+	Surface marle;
 	unsigned char alpha = 127;
 	std::wofstream logFile;
 	FrameTimer ft;

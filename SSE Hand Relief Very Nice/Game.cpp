@@ -29,6 +29,8 @@ Game::Game( HWND hWnd,KeyboardServer& kServer,MouseServer& mServer )
 	kbd( kServer ),
 	mouse( mServer ),
 	dice( Surface::FromFile( L"dice.png" ) ),
+	bees( Surface::FromFile( L"bees.jpg" ) ),
+	marle( Surface::FromFile( L"marle.png" ) ),
 	logFile( L"logfile.txt" )
 {
 }
@@ -63,11 +65,9 @@ void Game::UpdateModel()
 
 void Game::ComposeFrame()
 {
-	gfx.DrawRectangle( 0,D3DGraphics::screenWidth,0,D3DGraphics::screenHeight,BLACK );
-	gfx.BltAlpha( 100,100,0,0,400,300,dice );
-	Color c = YELLOW;
-	c.x = alpha;
+	Vei2 p = { mouse.GetMouseX(),mouse.GetMouseY() };
+	Color c = { alpha,GREEN };
+
 	ft.StartFrame();
-	gfx.Fade(alpha);
 	ft.StopFrame( logFile );
 }

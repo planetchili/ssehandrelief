@@ -97,6 +97,12 @@
     <Image Include="dice.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="marle.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="bees.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <Resource Include="ChiliDirectXFramework.res">

@@ -30,6 +30,10 @@ public:
 		:
 		r( r ),g( g ),b( b ),x( x )
 	{}
+	Color( unsigned char x,Color c )
+		:
+		r( c.r ),g( c.g ),b( c.b ),x( x )
+	{}
 	Color& operator =(Color c)
 	{
 		this->c = c;
