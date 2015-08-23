@@ -5,6 +5,7 @@
 #include <gdiplus.h>
 #include <string>
 #include <assert.h>
+#include <immintrin.h>
 #pragma comment( lib,"gdiplus.lib" )
 
 #define DEFAULT_SURFACE_ALIGNMENT 16
@@ -541,6 +542,149 @@ public:
 		for( Color* i = buffer,*end = &buffer[pixelPitch * height]; i < end; i++ )
 		{
 			*i = *i + 1;
+		}
+	}
+	//////////////////////////////////
+	// Bench Functions (SSE)
+	void ClearSSE()
+	{
+		__m128i zero = _mm_setzero_si128();
+		for( __m128i* i = reinterpret_cast<__m128i*>( buffer ),
+			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] );
+			i < end; i++ )
+		{
+			_mm_store_si128( i,zero );
+		}
+	}
+	void FillSSE( Color c )
+	{
+		const __m128i color = _mm_set1_epi32( c );
+		for( __m128i* i = reinterpret_cast<__m128i*>( buffer ),
+			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] );
+			i < end; i++ )
+		{
+			_mm_store_si128( i,color );
+		}
+	}
+	void FadeSSE( unsigned char a )
+	{
+		const __m128i alpha = _mm_set1_epi16( a );
+		const __m128i zero = _mm_setzero_si128();
+		for( __m128i* i = reinterpret_cast<__m128i*>( buffer ),
+			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] );
+			i < end; i++ )
+		{
+			const __m128i srcPixels = _mm_load_si128( i );
+			const __m128i srcLo16 = _mm_unpacklo_epi8( srcPixels,zero );
+			const __m128i srcHi16 = _mm_unpackhi_epi8( srcPixels,zero );
+			__m128i rsltLo16 = _mm_mullo_epi16( srcLo16,alpha );
+			__m128i rsltHi16 = _mm_mullo_epi16( srcHi16,alpha );
+			rsltLo16 = _mm_srli_epi16( rsltLo16,8 );
+			rsltHi16 = _mm_srli_epi16( rsltHi16,8 );
+			_mm_store_si128( i,_mm_packus_epi16( rsltLo16,rsltHi16 ) );
+		}
+	}
+	void FadeHalfSSE()
+	{
+		const __m128i zero = _mm_setzero_si128();
+		for( __m128i* i = reinterpret_cast<__m128i*>( buffer ),
+			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] );
+			i < end; i++ )
+		{
+			const __m128i srcPixels = _mm_load_si128( i );
+			const __m128i srcLo16 = _mm_unpacklo_epi8( srcPixels,zero );
+			const __m128i srcHi16 = _mm_unpackhi_epi8( srcPixels,zero );
+			const __m128i rsltLo16 = _mm_srli_epi16( srcLo16,1 );
+			const __m128i rsltHi16 = _mm_srli_epi16( srcHi16,1 );
+			_mm_store_si128( i,_mm_packus_epi16( rsltLo16,rsltHi16 ) );
+		}
+	}
+	void FadeHalfPackedSSE()
+	{
+		const __m128i shiftMask = _mm_set1_epi8( 0x7F );
+		for( __m128i* i = reinterpret_cast<__m128i*>( buffer ),
+			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] );
+			i < end; i++ )
+		{
+			const __m128i srcPixels = _mm_load_si128( i );
+			__m128i rslt = _mm_srli_epi16( srcPixels,1 );
+			rslt = _mm_and_si128( rslt,shiftMask );
+			_mm_store_si128( i,rslt );
+		}
+	}
+	void FadeHalfAvgSSE()
+	{
+		const __m128i zero = _mm_setzero_si128();
+		for( __m128i* i = reinterpret_cast<__m128i*>( buffer ),
+			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] );
+			i < end; i++ )
+		{
+			const __m128i srcPixels = _mm_load_si128( i );
+			_mm_store_si128( i,_mm_avg_epu8( srcPixels,zero ) );
+		}
+	}
+	void TintSSE( Color c )
+	{
+		const __m128i zero = _mm_setzero_si128();
+		const __m128i ones = _mm_set1_epi16( 0x00FF );
+		const __m128i color = _mm_set1_epi32( c );
+		for( __m128i* i = reinterpret_cast<__m128i*>( buffer ),
+			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] );
+			i < end; i++ )
+		{
+			const __m128i dstPixels = _mm_load_si128( i );
+			const __m128i dstLo16 = _mm_unpacklo_epi8( dstPixels,zero );
+			const __m128i dstHi16 = _mm_unpackhi_epi8( dstPixels,zero );
+			const __m128i color16 = _mm_unpacklo_epi8( color,zero );
+			__m128i alpha = _mm_shufflelo_epi16( color16,_MM_SHUFFLE( 3,3,3,3 ) );
+			alpha = _mm_shufflehi_epi16( alpha,_MM_SHUFFLE( 3,3,3,3 ) );
+			const __m128i calpha = _mm_sub_epi16( ones,alpha );
+			const __m128i mdstLo16 = _mm_mullo_epi16( dstLo16,calpha );
+			const __m128i mdstHi16 = _mm_mullo_epi16( dstHi16,calpha );
+			const __m128i mcolor16 = _mm_mullo_epi16( color16,alpha );
+			__m128i rsltLo16 = _mm_add_epi16( mdstLo16,mcolor16 );
+			__m128i rsltHi16 = _mm_add_epi16( mdstHi16,mcolor16 );
+			rsltLo16 = _mm_srli_epi16( rsltLo16,8 );
+			rsltHi16 = _mm_srli_epi16( rsltHi16,8 );
+			_mm_store_si128( i,_mm_packus_epi16( rsltLo16,rsltHi16 ) );
+		}
+	}
+	void TintPrecomputedSSE( Color c )
+	{
+		const __m128i zero = _mm_setzero_si128();
+		const __m128i alpha = _mm_set1_epi16( c.x );
+		const __m128i calpha = _mm_sub_epi16( _mm_set1_epi16( 0x00FF ),alpha );
+		__m128i preColor = _mm_set1_epi32( c );
+		preColor = _mm_unpacklo_epi8( preColor,zero );
+		preColor = _mm_mullo_epi16( preColor,alpha );
+		preColor = _mm_srli_epi16( preColor,8 );
+		preColor = _mm_packus_epi16( preColor,preColor );
+
+		for( __m128i* i = reinterpret_cast<__m128i*>( buffer ),
+			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] );
+			i < end; i++ )
+		{
+			const __m128i dstPixels = _mm_load_si128( i );
+			const __m128i dstLo16 = _mm_unpacklo_epi8( dstPixels,zero );
+			const __m128i dstHi16 = _mm_unpackhi_epi8( dstPixels,zero );
+			const __m128i mdstLo16 = _mm_mullo_epi16( dstLo16,calpha );
+			const __m128i mdstHi16 = _mm_mullo_epi16( dstHi16,calpha );
+			const __m128i rsltLo16 = _mm_srli_epi16( mdstLo16,8 );
+			const __m128i rsltHi16 = _mm_srli_epi16( mdstHi16,8 );
+			const __m128i rsltDst = _mm_packus_epi16( rsltLo16,rsltHi16 );
+			_mm_store_si128( i,_mm_add_epi8( rsltDst,preColor ) );
+		}
+	}
+	void TintHalfAvgSSE( Color c )
+	{
+		const __m128i color = _mm_set1_epi32( c );
+		for( __m128i* i = reinterpret_cast<__m128i*>( buffer ),
+			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] );
+			i < end; i++ )
+		{
+			const __m128i dstPixels = _mm_load_si128( i );
+			const __m128i rslt = _mm_avg_epu8( dstPixels,color );
+			_mm_store_si128( i,rslt );
 		}
 	}
 private:

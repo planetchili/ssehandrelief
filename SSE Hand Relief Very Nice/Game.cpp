@@ -49,16 +49,16 @@ void Game::Go()
 
 void Game::UpdateModel()
 {
-	while( !kbd.KeyEmpty() )
+	while( !mouse.MouseEmpty() )
 	{
-		KeyEvent e = kbd.ReadKey();
-		if( e.GetCode() == VK_DOWN )
+		MouseEvent e = mouse.ReadMouse();
+		if( e.GetType() == MouseEvent::WheelDown )
 		{
-			alpha+=3;
+			alpha -= 3;
 		}
-		else if( e.GetCode() == VK_UP )
+		else if( e.GetType() == MouseEvent::WheelUp )
 		{
-			alpha-=3;
+			alpha += 3;
 		}
 	}
 }
@@ -68,6 +68,8 @@ void Game::ComposeFrame()
 	Vei2 p = { mouse.GetMouseX(),mouse.GetMouseY() };
 	Color c = { alpha,GREEN };
 
+	gfx.sysBuffer.Copy( bees );
 	ft.StartFrame();
+	gfx.sysBuffer.Fade( alpha );
 	ft.StopFrame( logFile );
 }
