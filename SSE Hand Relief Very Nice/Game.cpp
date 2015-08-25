@@ -22,6 +22,7 @@
 #include <sstream>
 #include <iostream>
 #include <iomanip>
+#include <random>
 
 Game::Game( HWND hWnd,KeyboardServer& kServer,MouseServer& mServer )
 	:
@@ -69,7 +70,7 @@ void Game::ComposeFrame()
 	Color c = { alpha,GREEN };
 
 	gfx.sysBuffer.Copy( bees );
+
 	ft.StartFrame();
-	gfx.sysBuffer.Fade( alpha );
 	ft.StopFrame( logFile );
 }

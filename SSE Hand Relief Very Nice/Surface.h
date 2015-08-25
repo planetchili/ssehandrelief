@@ -263,6 +263,19 @@ public:
 				(unsigned char)( ( src.b * alpha ) / 256 ) };
 		}
 	}
+	void FadeShift( unsigned char a )
+	{
+		const unsigned int alpha = a;
+		const unsigned int mask = 0xFF;
+		for( Color* i = buffer,*end = &buffer[pixelPitch * height]; i < end; i++ )
+		{
+			const Color src = *i;
+			const unsigned int r = ( ( ( src >> 16 ) & mask ) * a ) >> 8;
+			const unsigned int g = ( ( ( src >> 8  ) & mask ) * a ) >> 8;
+			const unsigned int b = ( (   src         & mask ) * a ) >> 8;
+			*i = ( r << 16 ) | ( g << 8 ) | b;
+		}
+	}
 	void FadeHalf()
 	{
 		for( Color* i = buffer,*end = &buffer[pixelPitch * height]; i < end; i++ )
@@ -283,6 +296,18 @@ public:
 			*i = ( *i >> 1 ) & shiftMask;
 		}
 	}
+	//void FadeHalfShift()
+	//{
+	//	const unsigned int mask = 0x7F;
+	//	for( Color* i = buffer,*end = &buffer[pixelPitch * height]; i < end; i++ )
+	//	{
+	//		const Color src = *i;
+	//		const unsigned int r = ( src >> 17 ) & mask;
+	//		const unsigned int g = ( src >> 9 )  & mask;
+	//		const unsigned int b = ( src >> 1 )  & mask;
+	//		*i = ( r << 16 ) | ( g << 8 ) | b;
+	//	}
+	//}
 	void Tint( Color c )
 	{
 		for( Color* i = buffer,*end = &buffer[pixelPitch * height]; i < end; i++ )
@@ -299,24 +324,73 @@ public:
 			*i = { rsltRed,rsltGreen,rsltBlue };
 		}
 	}
-	void TintPrecomputed( Color c )
+	void TintShift( Color c )
 	{
-		unsigned short rPrecomp = c.r * c.x;
-		unsigned short gPrecomp = c.g * c.x;
-		unsigned short bPrecomp = c.b * c.x;
-		unsigned short aPrecomp = 255 - c.x;
+		const unsigned int mask = 0xFF;
 		for( Color* i = buffer,*end = &buffer[pixelPitch * height]; i < end; i++ )
 		{
 			// load destination pixel
-			const Color d = *i;
+			const Color src = *i;
 
-			// blend channels
-			const unsigned char rsltRed = ( rPrecomp + d.r * aPrecomp ) / 256;
-			const unsigned char rsltGreen = ( gPrecomp + d.g * aPrecomp ) / 256;
-			const unsigned char rsltBlue = ( bPrecomp + d.b * aPrecomp ) / 256;
+			// unpack tint components
+			const unsigned int a =   c >> 24;
+			const unsigned int r = ( c >> 16 ) & mask;
+			const unsigned int g = ( c >> 8  ) & mask;
+			const unsigned int b =   c         & mask;
+
+			// unpack source components and blend channels
+			const unsigned int rsltRed =   ( ( ( src >> 16 ) & mask ) *  ( 255 - a ) + r * a ) >> 8;
+			const unsigned int rsltGreen = ( ( ( src >> 8  ) & mask ) *  ( 255 - a ) + g * a ) >> 8;
+			const unsigned int rsltBlue =  (   ( src         & mask ) *  ( 255 - a ) + b * a ) >> 8;
 
 			// pack channels back into pixel and fire pixel onto surface
-			*i = { rsltRed,rsltGreen,rsltBlue };
+			*i = ( rsltRed << 16 ) | ( rsltGreen << 8 ) | rsltBlue;
+		}
+	}
+	void TintPrecomputed( Color c )
+	{
+		// unpack and premultiply tint channels
+		const unsigned int rPrecomp = c.r * c.x;
+		const unsigned int gPrecomp = c.g * c.x;
+		const unsigned int bPrecomp = c.b * c.x;
+		const unsigned int caPrecomp = 255 - c.x;
+		const unsigned int mask = 0xFF;
+		for( Color* i = buffer,*end = &buffer[pixelPitch * height]; i < end; i++ )
+		{
+			// load destination pixel
+			const Color src = *i;
+
+			// unpack source components and blend channels
+			const unsigned int rsltRed =   ( ( ( src >> 16 ) & mask ) *  caPrecomp + rPrecomp ) >> 8;
+			const unsigned int rsltGreen = ( ( ( src >> 8  ) & mask ) *  caPrecomp + gPrecomp ) >> 8;
+			const unsigned int rsltBlue =  (   ( src         & mask ) *  caPrecomp + bPrecomp ) >> 8;
+
+			// pack channels back into pixel and fire pixel onto surface
+			*i = ( rsltRed << 16 ) | ( rsltGreen << 8 ) | rsltBlue;
+		}
+	}
+	void TintPrecomputedPacked( Color c )
+	{
+		// unpack and premultiply tint channels
+		const unsigned int rPrecomp = ( c.r * c.x ) >> 8;
+		const unsigned int gPrecomp = ( c.g * c.x ) >> 8;
+		const unsigned int bPrecomp = ( c.b * c.x ) >> 8;
+		// pack premultiplied tint channels
+		const Color cPrecomp = Color( rPrecomp,gPrecomp,bPrecomp );
+		const unsigned int caPrecomp = 255 - c.x;
+		const unsigned int mask = 0xFF;
+		for( Color* i = buffer,*end = &buffer[pixelPitch * height]; i < end; i++ )
+		{
+			// load destination pixel
+			const Color src = *i;
+
+			// unpack source components and multiply
+			const unsigned int rsltRed =   ( ( ( src >> 16 ) & mask ) * caPrecomp ) >> 8;
+			const unsigned int rsltGreen = ( ( ( src >> 8  ) & mask ) * caPrecomp ) >> 8;
+			const unsigned int rsltBlue =  (   ( src         & mask ) * caPrecomp ) >> 8;
+
+			// pack channels back into pixel, add premultiplied tint, and fire pixel onto surface
+			*i = ( ( rsltRed << 16 ) | ( rsltGreen << 8 ) | rsltBlue ) + cPrecomp;
 		}
 	}
 	void TintHalfPacked( Color c )
@@ -331,21 +405,27 @@ public:
 	}
 	void Blend( Surface& s,unsigned char alpha )
 	{
+		const unsigned int mask = 0xFF;
+		const unsigned int a = alpha;
 		for( Color* i = buffer,*end = &buffer[pixelPitch * height], *j = s.GetBuffer(); 
 			i < end; i++,j++ )
 		{
-			// load destination pixel
+			// load source and destination pixels
 			const Color d = *i;
-			// load source pixel
 			const Color s = *j;
+			
+			// unpack source components
+			const unsigned int r = ( s >> 16 ) & mask;
+			const unsigned int g = ( s >> 8  ) & mask;
+			const unsigned int b =   s         & mask;
 
-			// blend channels
-			const unsigned char rsltRed = ( s.r * alpha + d.r * ( 255 - alpha ) ) / 256;
-			const unsigned char rsltGreen = ( s.g * alpha + d.g * ( 255 - alpha ) ) / 256;
-			const unsigned char rsltBlue = ( s.b * alpha + d.b * ( 255 - alpha ) ) / 256;
+			// unpack source components and blend channels
+			const unsigned int rsltRed =   ( ( ( d >> 16 ) & mask ) *  ( 255 - a ) + r * a ) >> 8;
+			const unsigned int rsltGreen = ( ( ( d >> 8  ) & mask ) *  ( 255 - a ) + g * a ) >> 8;
+			const unsigned int rsltBlue =  (   ( d         & mask ) *  ( 255 - a ) + b * a ) >> 8;
 
 			// pack channels back into pixel and fire pixel onto surface
-			*i = { rsltRed,rsltGreen,rsltBlue };
+			*i = ( rsltRed << 16 ) | ( rsltGreen << 8 ) | rsltBlue;
 		}
 	}
 	void BlendHalfPacked( Surface& s )
@@ -369,12 +449,16 @@ public:
 			}
 		}
 	}
-	void DrawRectBlendPrecomputed( RectI& rect,Color c )
+	void DrawRectBlendPrecomputedPacked( RectI& rect,Color c )
 	{
-		unsigned short rPrecomp = c.r * c.x;
-		unsigned short gPrecomp = c.g * c.x;
-		unsigned short bPrecomp = c.b * c.x;
-		unsigned short aPrecomp = 255 - c.x;
+		// unpack and premultiply tint channels
+		const unsigned int rPrecomp = ( c.r * c.x ) >> 8;
+		const unsigned int gPrecomp = ( c.g * c.x ) >> 8;
+		const unsigned int bPrecomp = ( c.b * c.x ) >> 8;
+		// pack premultiplied tint channels
+		const Color cPrecomp = Color( rPrecomp,gPrecomp,bPrecomp );
+		const unsigned int caPrecomp = 255 - c.x;
+		const unsigned int mask = 0xFF;
 		for( unsigned int y = unsigned int( rect.top ); y < unsigned int( rect.bottom ); y++ )
 		{
 			for( Color* i = &buffer[y * width + unsigned int( rect.left )],*end = i + rect.GetWidth();
@@ -383,13 +467,13 @@ public:
 				// load destination pixel
 				const Color d = *i;
 
-				// blend channels
-				const unsigned char rsltRed = ( rPrecomp + d.r * aPrecomp ) / 256;
-				const unsigned char rsltGreen = ( gPrecomp + d.g * aPrecomp ) / 256;
-				const unsigned char rsltBlue = ( bPrecomp + d.b * aPrecomp ) / 256;
+				// unpack source components and multiply
+				const unsigned int rsltRed =   ( ( ( d >> 16 ) & mask ) * caPrecomp ) >> 8;
+				const unsigned int rsltGreen = ( ( ( d >> 8  ) & mask ) * caPrecomp ) >> 8;
+				const unsigned int rsltBlue =  ( (   d         & mask ) * caPrecomp ) >> 8;
 
-				// pack channels back into pixel and fire pixel onto surface
-				*i = { rsltRed,rsltGreen,rsltBlue };
+				// pack channels back into pixel, add premultiplied tint, and fire pixel onto surface
+				*i = ( ( rsltRed << 16 ) | ( rsltGreen << 8 ) | rsltBlue ) + cPrecomp;
 			}
 		}
 	}
@@ -424,28 +508,34 @@ public:
 	}
 	void BltBlend( Vei2 dstPt,RectI& srcRect,Surface& src,unsigned char alpha )
 	{
+		const unsigned int mask = 0xFF;
+		const unsigned int a = alpha;
 		for( int yDst = dstPt.y,
 			yDstEnd = yDst + srcRect.GetHeight(),
 			ySrc = srcRect.top;
-		yDst < yDstEnd; yDst++,ySrc++ )
+			yDst < yDstEnd; yDst++,ySrc++ )
 		{
 			for( Color* i = &buffer[yDst * width + dstPt.x],
 				*iEnd = i + srcRect.GetWidth(),
 				*j = &src.GetBuffer()[ySrc * (int)src.GetPixelPitch() + srcRect.left];
-			i < iEnd; i++,j++ )
+				i < iEnd; i++,j++ )
 			{
-				// load destination pixel
+				// load source and destination pixels
 				const Color d = *i;
-				// load source pixel
 				const Color s = *j;
 
-				// blend channels
-				const unsigned char rsltRed = ( s.r * alpha + d.r * ( 255 - alpha ) ) / 256;
-				const unsigned char rsltGreen = ( s.g * alpha + d.g * ( 255 - alpha ) ) / 256;
-				const unsigned char rsltBlue = ( s.b * alpha + d.b * ( 255 - alpha ) ) / 256;
+				// unpack source components
+				const unsigned int r = ( s >> 16 ) & mask;
+				const unsigned int g = ( s >> 8  ) & mask;
+				const unsigned int b =   s         & mask;
+
+				// unpack source components and blend channels
+				const unsigned int rsltRed =   ( ( ( d >> 16 ) & mask ) * ( 255 - a ) + r * a ) >> 8;
+				const unsigned int rsltGreen = ( ( ( d >> 8  ) & mask ) * ( 255 - a ) + g * a ) >> 8;
+				const unsigned int rsltBlue =  (   ( d         & mask ) * ( 255 - a ) + b * a ) >> 8;
 
 				// pack channels back into pixel and fire pixel onto surface
-				*i = { rsltRed,rsltGreen,rsltBlue };				
+				*i = ( rsltRed << 16 ) | ( rsltGreen << 8 ) | rsltBlue;
 			}
 		}
 	}
@@ -455,12 +545,12 @@ public:
 		for( int yDst = dstPt.y,
 			yDstEnd = yDst + srcRect.GetHeight(),
 			ySrc = srcRect.top;
-		yDst < yDstEnd; yDst++,ySrc++ )
+			yDst < yDstEnd; yDst++,ySrc++ )
 		{
 			for( Color* i = &buffer[yDst * width + dstPt.x],
 				*iEnd = i + srcRect.GetWidth(),
 				*j = &src.GetBuffer()[ySrc * (int)src.GetPixelPitch() + srcRect.left];
-			i < iEnd; i++,j++ )
+				i < iEnd; i++,j++ )
 			{
 				// divide source and destination channels by 2 and sum (no carry will happen)
 				*i = ( ( *i >> 1 ) & shiftMask ) + ( ( *j >> 1 ) & shiftMask );
@@ -468,6 +558,69 @@ public:
 		}
 	}
 	void BltAlpha( Vei2 dstPt,RectI& srcRect,Surface& src )
+	{
+		const unsigned int mask = 0xFF;
+		for( int yDst = dstPt.y,
+			yDstEnd = yDst + srcRect.GetHeight(),
+			ySrc = srcRect.top;
+			yDst < yDstEnd; yDst++,ySrc++ )
+		{
+			for( Color* i = &buffer[yDst * width + dstPt.x],
+				*iEnd = i + srcRect.GetWidth(),
+				*j = &src.GetBuffer()[ySrc * (int)src.GetPixelPitch() + srcRect.left];
+				i < iEnd; i++,j++ )
+			{
+				// load source and destination pixels
+				const Color d = *i;
+				const Color s = *j;
+
+				// unpack source components
+				const unsigned int a =   s >> 24;
+				const unsigned int r = ( s >> 16 ) & mask;
+				const unsigned int g = ( s >> 8  ) & mask;
+				const unsigned int b =   s         & mask;
+
+				// unpack source components and blend channels
+				const unsigned int rsltRed =   ( ( ( d >> 16 ) & mask ) *  ( 255 - a ) + r * a ) >> 8;
+				const unsigned int rsltGreen = ( ( ( d >> 8  ) & mask ) *  ( 255 - a ) + g * a ) >> 8;
+				const unsigned int rsltBlue =  (   ( d         & mask ) *  ( 255 - a ) + b * a ) >> 8;
+
+				// pack channels back into pixel and fire pixel onto surface
+				*i = ( rsltRed << 16 ) | ( rsltGreen << 8 ) | rsltBlue;
+			}
+		}
+	}
+	void BltAlphaPremultipliedPacked( Vei2 dstPt,RectI& srcRect,Surface& src )
+	{
+		const unsigned int mask = 0xFF;
+		for( int yDst = dstPt.y,
+			yDstEnd = yDst + srcRect.GetHeight(),
+			ySrc = srcRect.top;
+			yDst < yDstEnd; yDst++,ySrc++ )
+		{
+			for( Color* i = &buffer[yDst * width + dstPt.x],
+				*iEnd = i + srcRect.GetWidth(),
+				*j = &src.GetBuffer()[ySrc * (int)src.GetPixelPitch() + srcRect.left];
+				i < iEnd; i++,j++ )
+			{
+				// load (premultiplied) source and destination pixels
+				const Color d = *i;
+				const Color s = *j;
+
+				// calculate alpha complement
+				const unsigned int ca = 255 - (s >> 24);
+
+				// unpack source components and blend channels
+				const unsigned int rsltRed =   ( ( ( d >> 16 ) & mask ) * ca ) >> 8;
+				const unsigned int rsltGreen = ( ( ( d >> 8  ) & mask ) * ca ) >> 8;
+				const unsigned int rsltBlue =  ( (   d         & mask ) * ca ) >> 8;
+
+				// pack channels back into pixel, add premultiplied packed components, and fire pixel onto surface
+				*i = ( ( rsltRed << 16 ) | ( rsltGreen << 8 ) | rsltBlue ) + s;
+			}
+		}
+	}
+	void BltKey( Vei2 dstPt,RectI& srcRect,Surface& src,Color key )
 	{
 		for( int yDst = dstPt.y,
 			yDstEnd = yDst + srcRect.GetHeight(),
@@ -479,69 +632,8 @@ public:
 				*j = &src.GetBuffer()[ySrc * (int)src.GetPixelPitch() + srcRect.left];
 				i < iEnd; i++,j++ )
 			{
-				// load destination pixel
-				const Color d = *i;
-				// load source pixel
-				const Color s = *j;
-
-				// blend channels
-				const unsigned char rsltRed = ( s.r * s.x + d.r * ( 255 - s.x ) ) / 256;
-				const unsigned char rsltGreen = ( s.g * s.x + d.g * ( 255 - s.x ) ) / 256;
-				const unsigned char rsltBlue = ( s.b * s.x + d.b * ( 255 - s.x ) ) / 256;
-
-				// pack channels back into pixel and fire pixel onto surface
-				*i = { rsltRed,rsltGreen,rsltBlue };
-			}
-		}
-	}
-	void BltAlphaPremultiplied( Vei2 dstPt,RectI& srcRect,Surface& src )
-	{
-		for( int yDst = dstPt.y,
-			yDstEnd = yDst + srcRect.GetHeight(),
-			ySrc = srcRect.top;
-		yDst < yDstEnd; yDst++,ySrc++ )
-		{
-			for( Color* i = &buffer[yDst * width + dstPt.x],
-				*iEnd = i + srcRect.GetWidth(),
-				*j = &src.GetBuffer()[ySrc * (int)src.GetPixelPitch() + srcRect.left];
-			i < iEnd; i++,j++ )
-			{
-				// load destination pixel
-				const Color d = *i;
-				// load source pixel
-				const Color s = *j;
-
-				// scale destination channels
-				const unsigned char rsltRed = ( d.r * ( 255 - s.x ) ) / 256;
-				const unsigned char rsltGreen = ( d.g * ( 255 - s.x ) ) / 256;
-				const unsigned char rsltBlue = ( d.b * ( 255 - s.x ) ) / 256;
-
-				// add scaled destation and premultiplied source
-				*i = Color{ rsltRed,rsltGreen,rsltBlue } + s;
-			}
-		}
-	}
-	void BltKey( Vei2 dstPt,RectI& srcRect,Surface& src,Color key )
-	{
-		for( int yDst = dstPt.y,
-			yDstEnd = yDst + srcRect.GetHeight(),
-			ySrc = srcRect.top;
-		yDst < yDstEnd; yDst++,ySrc++ )
-		{
-			for( Color* i = &buffer[yDst * width + dstPt.x],
-				*iEnd = i + srcRect.GetWidth(),
-				*j = &src.GetBuffer()[ySrc * (int)src.GetPixelPitch() + srcRect.left];
-			i < iEnd; i++,j++ )
-			{
 				*i = ( *j == key ? *i : *j );
 			}
-		}
-	}
-	void Trivial()
-	{
-		for( Color* i = buffer,*end = &buffer[pixelPitch * height]; i < end; i++ )
-		{
-			*i = *i + 1;
 		}
 	}
 	//////////////////////////////////
