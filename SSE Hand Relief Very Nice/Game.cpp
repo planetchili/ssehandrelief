@@ -32,6 +32,7 @@ Game::Game( HWND hWnd,KeyboardServer& kServer,MouseServer& mServer )
 	dice( Surface::FromFile( L"dice.png" ) ),
 	bees( Surface::FromFile( L"bees.jpg" ) ),
 	marle( Surface::FromFile( L"marle.png" ) ),
+	flare( Surface::FromFile( L"flare.png" ) ),
 	logFile( L"logfile.txt" )
 {
 }

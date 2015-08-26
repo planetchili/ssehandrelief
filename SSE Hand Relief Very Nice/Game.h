@@ -43,6 +43,7 @@ private:
 	Surface dice;
 	Surface bees;
 	Surface marle;
+	Surface flare;
 	unsigned char alpha = 127;
 	std::wofstream logFile;
 	FrameTimer ft;

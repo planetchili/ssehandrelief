@@ -438,6 +438,53 @@ public:
 			*i = ( ( *i >> 1 ) & shiftMask ) + ( ( *j >> 1 ) & shiftMask );
 		}
 	}
+	void BlendAlpha( Surface& s )
+	{
+		const unsigned int mask = 0xFF;
+		for( Color* i = buffer,*end = &buffer[pixelPitch * height],*j = s.GetBuffer();
+			i < end; i++,j++ )
+		{
+			// load (premultiplied) source and destination pixels
+			const Color d = *i;
+			const Color s = *j;
+
+			// unpack source components
+			const unsigned int a =   s >> 24;
+			const unsigned int r = ( s >> 16 ) & mask;
+			const unsigned int g = ( s >> 8  ) & mask;
+			const unsigned int b =   s         & mask;
+
+			// unpack source components and blend channels
+			const unsigned int rsltRed =   ( ( ( d >> 16 ) & mask ) *  ( 255 - a ) + r * a ) >> 8;
+			const unsigned int rsltGreen = ( ( ( d >> 8  ) & mask ) *  ( 255 - a ) + g * a ) >> 8;
+			const unsigned int rsltBlue =  (   ( d         & mask ) *  ( 255 - a ) + b * a ) >> 8;
+
+			// pack channels back into pixel and fire pixel onto surface
+			*i = ( rsltRed << 16 ) | ( rsltGreen << 8 ) | rsltBlue;
+		}
+	}
+	void BlendAlphaPremultipliedPacked( Surface& s )
+	{
+		const unsigned int mask = 0xFF;
+		for( Color* i = buffer,*end = &buffer[pixelPitch * height],*j = s.GetBuffer();
+			i < end; i++,j++ )
+		{
+			// load (premultiplied) source and destination pixels
+			const Color d = *i;
+			const Color s = *j;
+
+			// extract alpha complement
+			const unsigned int ca = s >> 24;
+
+			// unpack source components and blend channels
+			const unsigned int rsltRed =   ( ( ( d >> 16 ) & mask ) * ca ) >> 8;
+			const unsigned int rsltGreen = ( ( ( d >> 8  ) & mask ) * ca ) >> 8;
+			const unsigned int rsltBlue =  (   ( d         & mask ) * ca ) >> 8;
+
+			// pack channels back into pixel, add premultiplied packed components, and fire pixel onto surface
+			*i = ( ( rsltRed << 16 ) | ( rsltGreen << 8 ) | rsltBlue ) + s;
+		}
+	}
 	void DrawRect( RectI& rect,Color c )
 	{
 		for( unsigned int y = unsigned int( rect.top ); y < unsigned int( rect.bottom ); y++ )
