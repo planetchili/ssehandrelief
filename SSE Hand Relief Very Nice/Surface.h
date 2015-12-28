@@ -21,7 +21,7 @@ public:
 		height( height ),
 		pixelPitch( CalculatePixelPitch( width,byteAlignment ) )
 	{
-		buffer = new Color[height * pixelPitch];
+		buffer = (Color*)_aligned_malloc( sizeof(Color) * height * pixelPitch,32 );
 	}
 	Surface( Surface&& source )
 		:
@@ -39,7 +39,7 @@ public:
 		height( src.height ),
 		pixelPitch( src.pixelPitch )
 	{
-		buffer = new Color[height * pixelPitch];
+		buffer = (Color*)_aligned_malloc( sizeof( Color ) * height * pixelPitch,32 );
 		Copy( src );
 	}
 	Surface& operator=( Surface&& donor )
@@ -56,7 +56,7 @@ public:
 	{
 		if( buffer != nullptr )
 		{
-			delete[] buffer;
+			_aligned_free( buffer );
 			buffer = nullptr;
 		}
 	}
@@ -147,7 +147,7 @@ public:
 				const unsigned char rsltBlue = ( d.b * d.x ) / 256;
 
 				// pack channels back into pixel and fire pixel onto surface
-				PutPixel( x,y,{ d.x,rsltRed,rsltGreen,rsltBlue } );
+				PutPixel( x,y,{ (unsigned char)(255 - d.x),rsltRed,rsltGreen,rsltBlue } );
 			}
 		}
 	}
@@ -241,7 +241,7 @@ public:
 		{
 			for( unsigned int x = 0; x < width; x++ )
 			{
-				PutPixel( x,y,c );
+				buffer[y * pixelPitch + x] = c;
 			}
 		}
 	}
@@ -252,6 +252,7 @@ public:
 			*i = c;
 		}		
 	}
+
 	void Fade( unsigned char alpha )
 	{
 		for( Color* i = buffer,*end = &buffer[pixelPitch * height]; i < end; i++ )
@@ -270,9 +271,9 @@ public:
 		for( Color* i = buffer,*end = &buffer[pixelPitch * height]; i < end; i++ )
 		{
 			const Color src = *i;
-			const unsigned int r = ( ( ( src >> 16 ) & mask ) * a ) >> 8;
-			const unsigned int g = ( ( ( src >> 8  ) & mask ) * a ) >> 8;
-			const unsigned int b = ( (   src         & mask ) * a ) >> 8;
+			const unsigned int r = ( ( ( src >> 16 ) & mask ) * a ) / 256;
+			const unsigned int g = ( ( ( src >> 8  ) & mask ) * a ) / 256;
+			const unsigned int b = ( (   src         & mask ) * a ) / 256;
 			*i = ( r << 16 ) | ( g << 8 ) | b;
 		}
 	}
@@ -296,18 +297,19 @@ public:
 			*i = ( *i >> 1 ) & shiftMask;
 		}
 	}
-	//void FadeHalfShift()
-	//{
-	//	const unsigned int mask = 0x7F;
-	//	for( Color* i = buffer,*end = &buffer[pixelPitch * height]; i < end; i++ )
-	//	{
-	//		const Color src = *i;
-	//		const unsigned int r = ( src >> 17 ) & mask;
-	//		const unsigned int g = ( src >> 9 )  & mask;
-	//		const unsigned int b = ( src >> 1 )  & mask;
-	//		*i = ( r << 16 ) | ( g << 8 ) | b;
-	//	}
-	//}
+	void FadeHalfShift()
+	{
+		const unsigned int mask = 0x7F;
+		for( Color* i = buffer,*end = &buffer[pixelPitch * height]; i < end; i++ )
+		{
+			const Color src = *i;
+			const unsigned int r = ( src >> 17 ) & mask;
+			const unsigned int g = ( src >> 9 )  & mask;
+			const unsigned int b = ( src >> 1 )  & mask;
+			*i = ( r << 16 ) | ( g << 8 ) | b;
+		}
+	}
+
 	void Tint( Color c )
 	{
 		for( Color* i = buffer,*end = &buffer[pixelPitch * height]; i < end; i++ )
@@ -485,6 +487,7 @@ public:
 			*i = ( ( rsltRed << 16 ) | ( rsltGreen << 8 ) | rsltBlue ) + s;
 		}
 	}
+
 	void DrawRect( RectI& rect,Color c )
 	{
 		for( unsigned int y = unsigned int( rect.top ); y < unsigned int( rect.bottom ); y++ )
@@ -705,6 +708,7 @@ public:
 			_mm_store_si128( i,color );
 		}
 	}
+
 	void FadeSSE( unsigned char a )
 	{
 		const __m128i alpha = _mm_set1_epi16( a );
@@ -762,6 +766,7 @@ public:
 			_mm_store_si128( i,_mm_avg_epu8( srcPixels,zero ) );
 		}
 	}
+
 	void TintSSE( Color c )
 	{
 		const __m128i zero = _mm_setzero_si128();
@@ -823,6 +828,188 @@ public:
 		{
 			const __m128i dstPixels = _mm_load_si128( i );
 			const __m128i rslt = _mm_avg_epu8( dstPixels,color );
+			_mm_store_si128( i,rslt );
+		}
+	}
+	void BlendSSE( Surface& s,unsigned char a )
+	{
+		const __m128i alpha = _mm_set1_epi16( a );
+		const __m128i calpha = _mm_set1_epi16( 255u - a );
+		const __m128i zero = _mm_setzero_si128();
+		for( __m128i* i = reinterpret_cast<__m128i*>( buffer ),
+			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] ),
+			*j = reinterpret_cast<__m128i*>( s.GetBuffer() );
+			i < end; i++,j++ )
+		{
+			const __m128i srcPixels = _mm_load_si128( j );
+			const __m128i dstPixels = _mm_load_si128( i );
+			const __m128i srcLo16 = _mm_unpacklo_epi8( srcPixels,zero );
+			const __m128i srcHi16 = _mm_unpackhi_epi8( srcPixels,zero );
+			const __m128i dstLo16 = _mm_unpacklo_epi8( dstPixels,zero );
+			const __m128i dstHi16 = _mm_unpackhi_epi8( dstPixels,zero );
+			__m128i rsltSrcLo16 = _mm_mullo_epi16( srcLo16,alpha );
+			__m128i rsltSrcHi16 = _mm_mullo_epi16( srcHi16,alpha );
+			__m128i rsltDstLo16 = _mm_mullo_epi16( dstLo16,calpha );
+			__m128i rsltDstHi16 = _mm_mullo_epi16( dstHi16,calpha );
+			rsltSrcLo16 = _mm_srli_epi16( rsltSrcLo16,8 );
+			rsltSrcHi16 = _mm_srli_epi16( rsltSrcHi16,8 );
+			rsltDstLo16 = _mm_srli_epi16( rsltDstLo16,8 );
+			rsltDstHi16 = _mm_srli_epi16( rsltDstHi16,8 );
+			const __m128i rsltLo16 = _mm_adds_epi16( rsltSrcLo16,rsltDstLo16 );
+			const __m128i rsltHi16 = _mm_adds_epi16( rsltSrcHi16,rsltDstHi16 );
+			_mm_store_si128( i,_mm_packus_epi16( rsltLo16,rsltHi16 ) );
+		}
+	}
+	void BlendSSEHi( Surface& s,unsigned char a )
+	{
+		const __m128i alpha = _mm_set1_epi16( a << 8 );
+		const __m128i calpha = _mm_set1_epi16( (255u - a) << 8 );
+		const __m128i zero = _mm_setzero_si128();
+		for( __m128i* i = reinterpret_cast<__m128i*>( buffer ),
+			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] ),
+			*j = reinterpret_cast<__m128i*>( s.GetBuffer() );
+		i < end; i++,j++ )
+		{
+			const __m128i srcPixels = _mm_load_si128( j );
+			const __m128i dstPixels = _mm_load_si128( i );
+			const __m128i srcLo16 = _mm_unpacklo_epi8( srcPixels,zero );
+			const __m128i srcHi16 = _mm_unpackhi_epi8( srcPixels,zero );
+			const __m128i dstLo16 = _mm_unpacklo_epi8( dstPixels,zero );
+			const __m128i dstHi16 = _mm_unpackhi_epi8( dstPixels,zero );
+			const __m128i rsltSrcLo16 = _mm_mulhi_epu16( srcLo16,alpha  );
+			const __m128i rsltSrcHi16 = _mm_mulhi_epu16( srcHi16,alpha  );
+			const __m128i rsltDstLo16 = _mm_mulhi_epu16( dstLo16,calpha );
+			const __m128i rsltDstHi16 = _mm_mulhi_epu16( dstHi16,calpha );
+			const __m128i rsltLo16 = _mm_add_epi16( rsltSrcLo16,rsltDstLo16 );
+			const __m128i rsltHi16 = _mm_add_epi16( rsltSrcHi16,rsltDstHi16 );
+			_mm_store_si128( i,_mm_packus_epi16( rsltLo16,rsltHi16 ) );
+		}
+	}
+	void BlendAVXHi( Surface& s,unsigned char a )
+	{
+		const __m256i alpha = _mm256_set1_epi16( a << 8 );
+		const __m256i calpha = _mm256_set1_epi16( ( 255u - a ) << 8 );
+		const __m256i zero = _mm256_setzero_si256();
+		for( __m256i* i = reinterpret_cast<__m256i*>( buffer ),
+			*end = reinterpret_cast<__m256i*>( &buffer[pixelPitch * height] ),
+			*j = reinterpret_cast<__m256i*>( s.GetBuffer() );
+		i < end; i++,j++ )
+		{
+			const __m256i srcPixels = _mm256_load_si256( j );
+			const __m256i dstPixels = _mm256_load_si256( i );
+			const __m256i srcLo16 = _mm256_unpacklo_epi8( srcPixels,zero );
+			const __m256i srcHi16 = _mm256_unpackhi_epi8( srcPixels,zero );
+			const __m256i dstLo16 = _mm256_unpacklo_epi8( dstPixels,zero );
+			const __m256i dstHi16 = _mm256_unpackhi_epi8( dstPixels,zero );
+			const __m256i rsltSrcLo16 = _mm256_mulhi_epu16( srcLo16,alpha );
+			const __m256i rsltSrcHi16 = _mm256_mulhi_epu16( srcHi16,alpha );
+			const __m256i rsltDstLo16 = _mm256_mulhi_epu16( dstLo16,calpha );
+			const __m256i rsltDstHi16 = _mm256_mulhi_epu16( dstHi16,calpha );
+			const __m256i rsltLo16 = _mm256_add_epi16( rsltSrcLo16,rsltDstLo16 );
+			const __m256i rsltHi16 = _mm256_add_epi16( rsltSrcHi16,rsltDstHi16 );
+			_mm256_store_si256( i,_mm256_packus_epi16( rsltLo16,rsltHi16 ) );
+		}
+	}
+	void BlendHalfAvgSSE( Surface& s )
+	{
+		for( __m128i* i = reinterpret_cast<__m128i*>( buffer ),
+			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] ),
+			*j = reinterpret_cast<__m128i*>( s.GetBuffer() );
+			i < end; i++,j++ )
+		{
+			const __m128i srcPixels = _mm_load_si128( j );
+			const __m128i dstPixels = _mm_load_si128( i );
+			const __m128i rslt = _mm_avg_epu8( dstPixels,srcPixels );
+			_mm_store_si128( i,rslt );
+		}
+	}
+	void BlendAlphaSSEHi( Surface& s )
+	{
+		const __m128i zero = _mm_setzero_si128();
+		const __m128i ones = _mm_set1_epi16( 255u );
+		for( __m128i* i = reinterpret_cast<__m128i*>( buffer ),
+			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] ),
+			*j = reinterpret_cast<__m128i*>( s.GetBuffer() );
+		i < end; i++,j++ )
+		{
+			const __m128i srcPixels = _mm_load_si128( j );
+			const __m128i dstPixels = _mm_load_si128( i );
+
+			__m128i srcLo16 = _mm_unpacklo_epi8( srcPixels,zero );
+			__m128i srcHi16 = _mm_unpackhi_epi8( srcPixels,zero );
+			const __m128i dstLo16 = _mm_unpacklo_epi8( zero,dstPixels );
+			const __m128i dstHi16 = _mm_unpackhi_epi8( zero,dstPixels );
+
+			const __m128i alphaLo = _mm_shufflehi_epi16( _mm_shufflelo_epi16(
+				srcLo16,_MM_SHUFFLE( 3,3,3,3 ) ),_MM_SHUFFLE( 3,3,3,3 ) );
+			const __m128i alphaHi = _mm_shufflehi_epi16( _mm_shufflelo_epi16(
+				srcHi16,_MM_SHUFFLE( 3,3,3,3 ) ),_MM_SHUFFLE( 3,3,3,3 ) );
+			const __m128i calphaLo = _mm_sub_epi16( ones,alphaLo );
+			const __m128i calphaHi = _mm_sub_epi16( ones,alphaHi );
+
+			srcLo16 = _mm_slli_epi16( srcLo16,8 );
+			srcHi16 = _mm_slli_epi16( srcHi16,8 );
+
+			const __m128i rsltSrcLo16 = _mm_mulhi_epu16( srcLo16,alphaLo );
+			const __m128i rsltSrcHi16 = _mm_mulhi_epu16( srcHi16,alphaHi );
+			const __m128i rsltDstLo16 = _mm_mulhi_epu16( dstLo16,calphaLo );
+			const __m128i rsltDstHi16 = _mm_mulhi_epu16( dstHi16,calphaHi );
+
+			const __m128i rsltLo16 = _mm_add_epi16( rsltSrcLo16,rsltDstLo16 );
+			const __m128i rsltHi16 = _mm_add_epi16( rsltSrcHi16,rsltDstHi16 );
+
+			_mm_store_si128( i,_mm_packus_epi16( rsltLo16,rsltHi16 ) );
+		}
+	}
+	void BlendAlphaPremultipliedSSEHi( Surface& s )
+	{
+		const __m128i zero = _mm_setzero_si128();
+		for( __m128i* i = reinterpret_cast<__m128i*>( buffer ),
+			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] ),
+			*j = reinterpret_cast<__m128i*>( s.GetBuffer() );
+		i < end; i++,j++ )
+		{
+			const __m128i srcPixels = _mm_load_si128( j );
+			const __m128i dstPixels = _mm_load_si128( i );
+			const __m128i dstLo16 = _mm_unpacklo_epi8( zero,dstPixels );
+			const __m128i dstHi16 = _mm_unpackhi_epi8( zero,dstPixels );
+			const __m128i srcLo16 = _mm_unpacklo_epi8( srcPixels,zero );
+			const __m128i srcHi16 = _mm_unpackhi_epi8( srcPixels,zero );
+			const __m128i calphaLo = _mm_shufflehi_epi16( _mm_shufflelo_epi16( 
+				srcLo16,_MM_SHUFFLE( 3,3,3,3 ) ),_MM_SHUFFLE( 3,3,3,3 ) );
+			const __m128i calphaHi = _mm_shufflehi_epi16( _mm_shufflelo_epi16(
+				srcHi16,_MM_SHUFFLE( 3,3,3,3 ) ),_MM_SHUFFLE( 3,3,3,3 ) );
+			const __m128i rsltDstLo16 = _mm_mulhi_epu16( dstLo16,calphaLo );
+			const __m128i rsltDstHi16 = _mm_mulhi_epu16( dstHi16,calphaHi );
+			const __m128i rsltDst = _mm_packus_epi16( rsltDstLo16,rsltDstHi16 );
+			const __m128i rslt = _mm_add_epi8( rsltDst,srcPixels );
+			_mm_store_si128( i,rslt );
+		}
+	}
+	void BlendAlphaPremultipliedSSSE3Hi( Surface& s )
+	{
+		const __m128i zero = _mm_setzero_si128();
+		const __m128i alphaShuffleLo = _mm_set_epi8(
+			128u,128u,128u,7u,128u,7u,128u,7u,
+			128u,128u,128u,3u,128u,3u,128u,3u );
+		const __m128i alphaShuffleHi = _mm_set_epi8(
+			128u,128u,128u,15u,128u,15u,128u,15u,
+			128u,128u,128u,11u,128u,11u,128u,11u );
+		for( __m128i* i = reinterpret_cast<__m128i*>( buffer ),
+			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] ),
+			*j = reinterpret_cast<__m128i*>( s.GetBuffer() );
+		i < end; i++,j++ )
+		{
+			const __m128i srcPixels = _mm_load_si128( j );
+			const __m128i dstPixels = _mm_load_si128( i );
+			const __m128i dstLo16 = _mm_unpacklo_epi8( zero,dstPixels );
+			const __m128i dstHi16 = _mm_unpackhi_epi8( zero,dstPixels );
+			const __m128i calphaLo = _mm_shuffle_epi8( srcPixels,alphaShuffleLo );
+			const __m128i calphaHi = _mm_shuffle_epi8( srcPixels,alphaShuffleHi );
+			const __m128i rsltDstLo16 = _mm_mulhi_epu16( dstLo16,calphaLo );
+			const __m128i rsltDstHi16 = _mm_mulhi_epu16( dstHi16,calphaHi );
+			const __m128i rsltDst = _mm_packus_epi16( rsltDstLo16,rsltDstHi16 );
+			const __m128i rslt = _mm_add_epi8( rsltDst,srcPixels );
 			_mm_store_si128( i,rslt );
 		}
 	}

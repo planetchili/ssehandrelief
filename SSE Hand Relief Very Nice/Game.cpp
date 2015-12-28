@@ -35,6 +35,7 @@ Game::Game( HWND hWnd,KeyboardServer& kServer,MouseServer& mServer )
 	flare( Surface::FromFile( L"flare.png" ) ),
 	logFile( L"logfile.txt" )
 {
+	//flare.PremultiplyAlpha();
 }
 
 Game::~Game()
@@ -68,10 +69,8 @@ void Game::UpdateModel()
 void Game::ComposeFrame()
 {
 	Vei2 p = { mouse.GetMouseX(),mouse.GetMouseY() };
-	Color c = { alpha,GREEN };
-
-	gfx.sysBuffer.Copy( bees );
 
 	ft.StartFrame();
+	gfx.sysBuffer.BlendAlpha( flare );
 	ft.StopFrame( logFile );
 }
