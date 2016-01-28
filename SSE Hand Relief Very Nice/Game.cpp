@@ -70,7 +70,7 @@ void Game::ComposeFrame()
 {
 	Vei2 p = { mouse.GetMouseX(),mouse.GetMouseY() };
 
+	gfx.sysBuffer.Copy( bees );
 	ft.StartFrame();
-	gfx.sysBuffer.BlendAlpha( flare );
 	ft.StopFrame( logFile );
 }

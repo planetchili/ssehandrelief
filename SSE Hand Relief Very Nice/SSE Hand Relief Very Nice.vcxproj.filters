@@ -106,6 +106,9 @@
     <Image Include="flare.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="borat.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <Resource Include="ChiliDirectXFramework.res">
