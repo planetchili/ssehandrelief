@@ -405,11 +405,12 @@ public:
 			*i = ( ( *i >> 1 ) & shiftMask ) + preComp;
 		}
 	}
-	void Blend( Surface& s,unsigned char alpha )
+	void Blend( const Surface& s,unsigned char alpha )
 	{
 		const unsigned int mask = 0xFF;
 		const unsigned int a = alpha;
-		for( Color* i = buffer,*end = &buffer[pixelPitch * height], *j = s.GetBuffer(); 
+		const Color* j = s.GetBufferConst();
+		for( Color* i = buffer,*end = &buffer[pixelPitch * height]; 
 			i < end; i++,j++ )
 		{
 			// load source and destination pixels
@@ -430,20 +431,22 @@ public:
 			*i = ( rsltRed << 16 ) | ( rsltGreen << 8 ) | rsltBlue;
 		}
 	}
-	void BlendHalfPacked( Surface& s )
+	void BlendHalfPacked( const Surface& s )
 	{
 		const unsigned int shiftMask = 0x007F7F7F;
-		for( Color* i = buffer,*end = &buffer[pixelPitch * height],*j = s.GetBuffer();
+		const Color* j = s.GetBufferConst();
+		for( Color* i = buffer,*end = &buffer[pixelPitch * height];
 			i < end; i++,j++ )
 		{
 			// divide source and destination channels by 2 and sum (no carry will happen)
 			*i = ( ( *i >> 1 ) & shiftMask ) + ( ( *j >> 1 ) & shiftMask );
 		}
 	}
-	void BlendAlpha( Surface& s )
+	void BlendAlpha( const Surface& s )
 	{
 		const unsigned int mask = 0xFF;
-		for( Color* i = buffer,*end = &buffer[pixelPitch * height],*j = s.GetBuffer();
+		const Color* j = s.GetBufferConst();
+		for( Color* i = buffer,*end = &buffer[pixelPitch * height];
 			i < end; i++,j++ )
 		{
 			// load (premultiplied) source and destination pixels
@@ -465,10 +468,11 @@ public:
 			*i = ( rsltRed << 16 ) | ( rsltGreen << 8 ) | rsltBlue;
 		}
 	}
-	void BlendAlphaPremultipliedPacked( Surface& s )
+	void BlendAlphaPremultipliedPacked( const Surface& s )
 	{
 		const unsigned int mask = 0xFF;
-		for( Color* i = buffer,*end = &buffer[pixelPitch * height],*j = s.GetBuffer();
+		const Color* j = s.GetBufferConst();
+		for( Color* i = buffer,*end = &buffer[pixelPitch * height];
 			i < end; i++,j++ )
 		{
 			// load (premultiplied) source and destination pixels
@@ -488,7 +492,7 @@ public:
 		}
 	}
 
-	void DrawRect( RectI& rect,Color c )
+	void DrawRect( const RectI& rect,Color c )
 	{
 		for( unsigned int y = unsigned int( rect.top ); y < unsigned int( rect.bottom ); y++ )
 		{
@@ -499,7 +503,7 @@ public:
 			}
 		}
 	}
-	void DrawRectBlendPrecomputedPacked( RectI& rect,Color c )
+	void DrawRectBlendPrecomputedPacked( const RectI& rect,Color c )
 	{
 		// unpack and premultiply tint channels
 		const unsigned int rPrecomp = ( c.r * c.x ) >> 8;
@@ -527,7 +531,7 @@ public:
 			}
 		}
 	}
-	void DrawRectBlendHalfPacked( RectI& rect,Color c )
+	void DrawRectBlendHalfPacked( const RectI& rect,Color c )
 	{
 		const unsigned int shiftMask = 0x007F7F7F;
 		const Color preComp = ( c >> 1 ) & shiftMask;
@@ -540,23 +544,23 @@ public:
 			}
 		}
 	}
-	void Blt( Vei2 dstPt,RectI& srcRect,Surface& src )
+	void Blt( Vei2 dstPt,const RectI& srcRect,const Surface& src )
 	{
 		for( int yDst = dstPt.y, 
 			yDstEnd = yDst + srcRect.GetHeight(),
 			ySrc = srcRect.top;
 			yDst < yDstEnd; yDst++,ySrc++ )
 		{
+			const Color* j = &src.GetBufferConst()[ySrc * (int)src.GetPixelPitch() + srcRect.left];
 			for( Color* i = &buffer[yDst * width + dstPt.x],
-				*iEnd = i + srcRect.GetWidth(),
-				*j = &src.GetBuffer()[ySrc * (int)src.GetPixelPitch() + srcRect.left];
+				*iEnd = i + srcRect.GetWidth();
 				i < iEnd; i++,j++ )
 			{
 				*i = *j;
 			}
 		}
 	}
-	void BltBlend( Vei2 dstPt,RectI& srcRect,Surface& src,unsigned char alpha )
+	void BltBlend( Vei2 dstPt,const RectI& srcRect,const Surface& src,unsigned char alpha )
 	{
 		const unsigned int mask = 0xFF;
 		const unsigned int a = alpha;
@@ -565,9 +569,9 @@ public:
 			ySrc = srcRect.top;
 			yDst < yDstEnd; yDst++,ySrc++ )
 		{
+			const Color* j = &src.GetBufferConst()[ySrc * (int)src.GetPixelPitch() + srcRect.left];
 			for( Color* i = &buffer[yDst * width + dstPt.x],
-				*iEnd = i + srcRect.GetWidth(),
-				*j = &src.GetBuffer()[ySrc * (int)src.GetPixelPitch() + srcRect.left];
+				*iEnd = i + srcRect.GetWidth();
 				i < iEnd; i++,j++ )
 			{
 				// load source and destination pixels
@@ -589,7 +593,7 @@ public:
 			}
 		}
 	}
-	void BltBlendHalfPacked( Vei2 dstPt,RectI& srcRect,Surface& src )
+	void BltBlendHalfPacked( Vei2 dstPt,const RectI& srcRect,const Surface& src )
 	{
 		const unsigned int shiftMask = 0x007F7F7F;
 		for( int yDst = dstPt.y,
@@ -597,9 +601,9 @@ public:
 			ySrc = srcRect.top;
 			yDst < yDstEnd; yDst++,ySrc++ )
 		{
+			const Color* j = &src.GetBufferConst()[ySrc * (int)src.GetPixelPitch() + srcRect.left];
 			for( Color* i = &buffer[yDst * width + dstPt.x],
-				*iEnd = i + srcRect.GetWidth(),
-				*j = &src.GetBuffer()[ySrc * (int)src.GetPixelPitch() + srcRect.left];
+				*iEnd = i + srcRect.GetWidth();
 				i < iEnd; i++,j++ )
 			{
 				// divide source and destination channels by 2 and sum (no carry will happen)
@@ -607,7 +611,7 @@ public:
 			}
 		}
 	}
-	void BltAlpha( Vei2 dstPt,RectI& srcRect,Surface& src )
+	void BltAlpha( Vei2 dstPt,const RectI& srcRect,const Surface& src )
 	{
 		const unsigned int mask = 0xFF;
 		for( int yDst = dstPt.y,
@@ -615,9 +619,9 @@ public:
 			ySrc = srcRect.top;
 			yDst < yDstEnd; yDst++,ySrc++ )
 		{
+			const Color* j = &src.GetBufferConst()[ySrc * (int)src.GetPixelPitch() + srcRect.left];
 			for( Color* i = &buffer[yDst * width + dstPt.x],
-				*iEnd = i + srcRect.GetWidth(),
-				*j = &src.GetBuffer()[ySrc * (int)src.GetPixelPitch() + srcRect.left];
+				*iEnd = i + srcRect.GetWidth();
 				i < iEnd; i++,j++ )
 			{
 				// load source and destination pixels
@@ -640,7 +644,7 @@ public:
 			}
 		}
 	}
-	void BltAlphaPremultipliedPacked( Vei2 dstPt,RectI& srcRect,Surface& src )
+	void BltAlphaPremultipliedPacked( Vei2 dstPt,const RectI& srcRect,const Surface& src )
 	{
 		const unsigned int mask = 0xFF;
 		for( int yDst = dstPt.y,
@@ -648,17 +652,17 @@ public:
 			ySrc = srcRect.top;
 			yDst < yDstEnd; yDst++,ySrc++ )
 		{
+			const Color* j = &src.GetBufferConst()[ySrc * (int)src.GetPixelPitch() + srcRect.left];
 			for( Color* i = &buffer[yDst * width + dstPt.x],
-				*iEnd = i + srcRect.GetWidth(),
-				*j = &src.GetBuffer()[ySrc * (int)src.GetPixelPitch() + srcRect.left];
+				*iEnd = i + srcRect.GetWidth();
 				i < iEnd; i++,j++ )
 			{
 				// load (premultiplied) source and destination pixels
 				const Color d = *i;
 				const Color s = *j;
 
-				// calculate alpha complement
-				const unsigned int ca = 255 - (s >> 24);
+				// unpack alpha complement
+				const unsigned int ca = s >> 24;
 
 				// unpack source components and blend channels
 				const unsigned int rsltRed =   ( ( ( d >> 16 ) & mask ) * ca ) >> 8;
@@ -670,16 +674,16 @@ public:
 			}
 		}
 	}
-	void BltKey( Vei2 dstPt,RectI& srcRect,Surface& src,Color key )
+	void BltKey( Vei2 dstPt,const RectI& srcRect,const Surface& src,Color key )
 	{
 		for( int yDst = dstPt.y,
 			yDstEnd = yDst + srcRect.GetHeight(),
 			ySrc = srcRect.top;
 			yDst < yDstEnd; yDst++,ySrc++ )
 		{
+			const Color* j = &src.GetBufferConst()[ySrc * (int)src.GetPixelPitch() + srcRect.left];
 			for( Color* i = &buffer[yDst * width + dstPt.x],
-				*iEnd = i + srcRect.GetWidth(),
-				*j = &src.GetBuffer()[ySrc * (int)src.GetPixelPitch() + srcRect.left];
+				*iEnd = i + srcRect.GetWidth();
 				i < iEnd; i++,j++ )
 			{
 				*i = ( *j == key ? *i : *j );
@@ -831,14 +835,14 @@ public:
 			_mm_store_si128( i,rslt );
 		}
 	}
-	void BlendSSE( Surface& s,unsigned char a )
+	void BlendSSE( const Surface& s,unsigned char a )
 	{
 		const __m128i alpha = _mm_set1_epi16( a );
 		const __m128i calpha = _mm_set1_epi16( 255u - a );
 		const __m128i zero = _mm_setzero_si128();
+		const __m128i* j = reinterpret_cast<const __m128i*>( s.GetBufferConst() );
 		for( __m128i* i = reinterpret_cast<__m128i*>( buffer ),
-			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] ),
-			*j = reinterpret_cast<__m128i*>( s.GetBuffer() );
+			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] );
 			i < end; i++,j++ )
 		{
 			const __m128i srcPixels = _mm_load_si128( j );
@@ -860,14 +864,14 @@ public:
 			_mm_store_si128( i,_mm_packus_epi16( rsltLo16,rsltHi16 ) );
 		}
 	}
-	void BlendSSEHi( Surface& s,unsigned char a )
+	void BlendSSEHi( const Surface& s,unsigned char a )
 	{
 		const __m128i alpha = _mm_set1_epi16( a << 8 );
 		const __m128i calpha = _mm_set1_epi16( (255u - a) << 8 );
 		const __m128i zero = _mm_setzero_si128();
+		const __m128i* j = reinterpret_cast<const __m128i*>( s.GetBufferConst() );
 		for( __m128i* i = reinterpret_cast<__m128i*>( buffer ),
-			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] ),
-			*j = reinterpret_cast<__m128i*>( s.GetBuffer() );
+			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] );
 		i < end; i++,j++ )
 		{
 			const __m128i srcPixels = _mm_load_si128( j );
@@ -885,14 +889,14 @@ public:
 			_mm_store_si128( i,_mm_packus_epi16( rsltLo16,rsltHi16 ) );
 		}
 	}
-	void BlendAVXHi( Surface& s,unsigned char a )
+	void BlendAVXHi( const Surface& s,unsigned char a )
 	{
 		const __m256i alpha = _mm256_set1_epi16( a << 8 );
 		const __m256i calpha = _mm256_set1_epi16( ( 255u - a ) << 8 );
 		const __m256i zero = _mm256_setzero_si256();
+		const __m256i* j = reinterpret_cast<const __m256i*>( s.GetBufferConst() );
 		for( __m256i* i = reinterpret_cast<__m256i*>( buffer ),
-			*end = reinterpret_cast<__m256i*>( &buffer[pixelPitch * height] ),
-			*j = reinterpret_cast<__m256i*>( s.GetBuffer() );
+			*end = reinterpret_cast<__m256i*>( &buffer[pixelPitch * height] );
 		i < end; i++,j++ )
 		{
 			const __m256i srcPixels = _mm256_load_si256( j );
@@ -910,11 +914,11 @@ public:
 			_mm256_store_si256( i,_mm256_packus_epi16( rsltLo16,rsltHi16 ) );
 		}
 	}
-	void BlendHalfAvgSSE( Surface& s )
+	void BlendHalfAvgSSE( const Surface& s )
 	{
+		const __m128i* j = reinterpret_cast<const __m128i*>( s.GetBufferConst() );
 		for( __m128i* i = reinterpret_cast<__m128i*>( buffer ),
-			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] ),
-			*j = reinterpret_cast<__m128i*>( s.GetBuffer() );
+			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] );
 			i < end; i++,j++ )
 		{
 			const __m128i srcPixels = _mm_load_si128( j );
@@ -923,13 +927,13 @@ public:
 			_mm_store_si128( i,rslt );
 		}
 	}
-	void BlendAlphaSSEHi( Surface& s )
+	void BlendAlphaSSEHi( const Surface& s )
 	{
 		const __m128i zero = _mm_setzero_si128();
 		const __m128i ones = _mm_set1_epi16( 255u );
+		const __m128i* j = reinterpret_cast<const __m128i*>( s.GetBufferConst() );
 		for( __m128i* i = reinterpret_cast<__m128i*>( buffer ),
-			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] ),
-			*j = reinterpret_cast<__m128i*>( s.GetBuffer() );
+			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] );
 		i < end; i++,j++ )
 		{
 			const __m128i srcPixels = _mm_load_si128( j );
@@ -961,12 +965,12 @@ public:
 			_mm_store_si128( i,_mm_packus_epi16( rsltLo16,rsltHi16 ) );
 		}
 	}
-	void BlendAlphaPremultipliedSSEHi( Surface& s )
+	void BlendAlphaPremultipliedSSEHi( const Surface& s )
 	{
 		const __m128i zero = _mm_setzero_si128();
+		const __m128i* j = reinterpret_cast<const __m128i*>( s.GetBufferConst() );
 		for( __m128i* i = reinterpret_cast<__m128i*>( buffer ),
-			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] ),
-			*j = reinterpret_cast<__m128i*>( s.GetBuffer() );
+			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] );
 		i < end; i++,j++ )
 		{
 			const __m128i srcPixels = _mm_load_si128( j );
@@ -986,7 +990,7 @@ public:
 			_mm_store_si128( i,rslt );
 		}
 	}
-	void BlendAlphaPremultipliedSSSE3Hi( Surface& s )
+	void BlendAlphaPremultipliedSSSE3Hi( const Surface& s )
 	{
 		const __m128i zero = _mm_setzero_si128();
 		const __m128i alphaShuffleLo = _mm_set_epi8(
@@ -995,9 +999,9 @@ public:
 		const __m128i alphaShuffleHi = _mm_set_epi8(
 			128u,128u,128u,15u,128u,15u,128u,15u,
 			128u,128u,128u,11u,128u,11u,128u,11u );
+		const __m128i* j = reinterpret_cast<const __m128i*>( s.GetBufferConst() );
 		for( __m128i* i = reinterpret_cast<__m128i*>( buffer ),
-			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] ),
-			*j = reinterpret_cast<__m128i*>( s.GetBuffer() );
+			*end = reinterpret_cast<__m128i*>( &buffer[pixelPitch * height] );
 		i < end; i++,j++ )
 		{
 			const __m128i srcPixels = _mm_load_si128( j );
@@ -1013,6 +1017,654 @@ public:
 			_mm_store_si128( i,rslt );
 		}
 	}
+
+	void DrawRectSSEBad( const RectI& rect,Color c )
+	{
+		const __m128i c128 = _mm_set1_epi32( c );
+		for( int y = rect.top; y < rect.bottom; y++ )
+		{
+			for( __m128i* pCur = reinterpret_cast<__m128i*>( &buffer[rect.left + pixelPitch * y] ),
+				*pEnd = reinterpret_cast<__m128i*>( &buffer[rect.right + pixelPitch * y] );
+				pCur < pEnd; pCur++ )
+			{
+				_mm_store_si128( pCur,c128 );
+			}
+		}
+	}
+	void DrawRectSSE( const RectI& rect,Color c )
+	{
+		const __m128i c128 = _mm_set1_epi32( c );
+		// round up to nearest multiple of 4
+		const unsigned int xStartLoop = ( rect.left + 3 ) & ~0x03;
+		// round down to nearest multiple of 4
+		const unsigned int xEndLoop = rect.right & ~0x03;
+		for( int y = rect.top; y < rect.bottom; y++ )
+		{
+			Color* const pEndPeel = &buffer[xStartLoop + pixelPitch * y];
+			Color* const pEndLoop = &buffer[xEndLoop + pixelPitch * y];
+			for( Color* pCur = &buffer[rect.left + pixelPitch * y];	pCur < pEndPeel; pCur++ )
+			{
+				*pCur = c;
+			}
+			for( __m128i* pCur = reinterpret_cast<__m128i*>( pEndPeel ); 
+				pCur < reinterpret_cast<__m128i*>( pEndLoop ); pCur++ )
+			{
+				_mm_store_si128( pCur,c128 );
+			}
+			for( Color* pCur = pEndLoop,*pEnd = &buffer[rect.right + pixelPitch * y]; pCur < pEnd; pCur++ )
+			{
+				*pCur = c;
+			}
+		}
+	}
+	void BltSSESrcDstAligned( Vei2 dstPt,const RectI& srcRect,const Surface& src )
+	{
+		const int srcPitch = int( src.GetPixelPitch() );
+		const int dstPitch = int( GetPixelPitch() );
+		for( int ySrc = srcRect.top,ySrcEnd = srcRect.bottom,yDst = dstPt.y; 
+			ySrc < ySrcEnd; ySrc++,yDst++ )
+		{
+			const __m128i* pSrc = reinterpret_cast<const __m128i*>(
+				&src.GetBufferConst()[srcRect.left + srcPitch * ySrc] );
+			// divide by 4 because were working with 128-bit pointer arithmetic
+			const __m128i* const pSrcEnd = pSrc + srcRect.GetWidth() / 4;
+			__m128i* pDst = reinterpret_cast<__m128i*>(
+				&GetBuffer()[dstPt.x + dstPitch * yDst] );
+			for( ; pSrc < pSrcEnd; pSrc++,pDst++ )
+			{
+				_mm_store_si128( pDst,_mm_load_si128( pSrc ) );
+			}
+		}
+	}
+	void BltSSESrcAligned( Vei2 dstPt,const RectI& srcRect,const Surface& src )
+	{
+		const int alignment = dstPt.x % 4;
+		const int srcPitch = int( src.GetPixelPitch() );
+		const int dstPitch = int( GetPixelPitch() );
+		switch( alignment )
+		{
+		case 0:
+			for( int ySrc = srcRect.top,ySrcEnd = srcRect.bottom,yDst = dstPt.y;
+				ySrc < ySrcEnd; ySrc++,yDst++ )
+			{
+				const __m128i* pSrc = reinterpret_cast<const __m128i*>(
+					&src.GetBufferConst()[srcRect.left + srcPitch * ySrc] );
+				// divide by 4 because were working with 128-bit pointer arithmetic
+				const __m128i* const pSrcEnd = pSrc + srcRect.GetWidth() / 4;
+				__m128i* pDst = reinterpret_cast<__m128i*>(
+					&GetBuffer()[dstPt.x + dstPitch * yDst] );
+				for( ; pSrc < pSrcEnd; pSrc++,pDst++ )
+				{
+					_mm_store_si128( pDst,_mm_load_si128( pSrc ) );
+				}
+			}
+			break;
+		case 1:
+			for( int ySrc = srcRect.top,ySrcEnd = srcRect.bottom,yDst = dstPt.y;
+				ySrc < ySrcEnd; ySrc++,yDst++ )
+			{
+				const __m128i* pSrc = reinterpret_cast<const __m128i*>(
+					&src.GetBufferConst()[srcRect.left + srcPitch * ySrc] );
+				// divide by 4 because were working with 128-bit pointer arithmetic
+				const __m128i* const pSrcEnd = pSrc + srcRect.GetWidth() / 4;
+				// round down to nearest multiple of 4 pixel (down to nearest 16-byte aligned)
+				__m128i* pDst = reinterpret_cast<__m128i*>(
+					&GetBuffer()[( dstPt.x & ~0x03 ) + dstPitch * yDst] );
+
+				// prime the pump with destination pixels that will not be overwritten (pre-shift)
+				__m128i prevSrc = _mm_slli_si128( _mm_load_si128( pDst ),12 );
+				for( ; pSrc < pSrcEnd; pSrc++,pDst++ )
+				{
+					__m128i newSrc = _mm_load_si128( pSrc );
+					__m128i output = _mm_or_si128(
+						_mm_srli_si128( prevSrc,12 ),_mm_slli_si128( newSrc,4 ) );
+					_mm_store_si128( pDst,output );
+					prevSrc = newSrc;
+				}
+				// finish off the last section that contains dest pixels that will not be overwritten
+				const __m128i dstFinal = _mm_slli_si128(
+					_mm_srli_si128( _mm_load_si128( pDst ),4 ),4 );
+				__m128i output = _mm_or_si128(
+					_mm_srli_si128( prevSrc,12 ),dstFinal );
+				_mm_store_si128( pDst,output );
+			}
+			break;
+		case 2:
+			for( int ySrc = srcRect.top,ySrcEnd = srcRect.bottom,yDst = dstPt.y;
+				ySrc < ySrcEnd; ySrc++,yDst++ )
+			{
+				const __m128i* pSrc = reinterpret_cast<const __m128i*>(
+					&src.GetBufferConst()[srcRect.left + srcPitch * ySrc] );
+				// divide by 4 because were working with 128-bit pointer arithmetic
+				const __m128i* const pSrcEnd = pSrc + srcRect.GetWidth() / 4;
+				// round down to nearest multiple of 4 pixel (down to nearest 16-byte aligned)
+				__m128i* pDst = reinterpret_cast<__m128i*>(
+					&GetBuffer()[( dstPt.x & ~0x03 ) + dstPitch * yDst] );
+
+				// prime the pump with destination pixels that will not be overwritten (pre-shift)
+				__m128i prevSrc = _mm_slli_si128( _mm_load_si128( pDst ),8 );
+				for( ; pSrc < pSrcEnd; pSrc++,pDst++ )
+				{
+					__m128i newSrc = _mm_load_si128( pSrc );
+					__m128i output = _mm_or_si128(
+						_mm_srli_si128( prevSrc,8 ),_mm_slli_si128( newSrc,8 ) );
+					_mm_store_si128( pDst,output );
+					prevSrc = newSrc;
+				}
+				// finish off the last section that contains dest pixels that will not be overwritten
+				const __m128i dstFinal = _mm_slli_si128(
+					_mm_srli_si128( _mm_load_si128( pDst ),8 ),8 );
+				__m128i output = _mm_or_si128(
+					_mm_srli_si128( prevSrc,8 ),dstFinal );
+				_mm_store_si128( pDst,output );
+			}
+			break;
+		case 3:
+			for( int ySrc = srcRect.top,ySrcEnd = srcRect.bottom,yDst = dstPt.y;
+				ySrc < ySrcEnd; ySrc++,yDst++ )
+			{
+				const __m128i* pSrc = reinterpret_cast<const __m128i*>(
+					&src.GetBufferConst()[srcRect.left + srcPitch * ySrc] );
+				// divide by 4 because were working with 128-bit pointer arithmetic
+				const __m128i* const pSrcEnd = pSrc + srcRect.GetWidth() / 4;
+				// round down to nearest multiple of 4 pixel (down to nearest 16-byte aligned)
+				__m128i* pDst = reinterpret_cast<__m128i*>(
+					&GetBuffer()[( dstPt.x & ~0x03 ) + dstPitch * yDst] );
+
+				// prime the pump with destination pixels that will not be overwritten (pre-shift)
+				__m128i prevSrc = _mm_slli_si128( _mm_load_si128( pDst ),4 );
+				for( ; pSrc < pSrcEnd; pSrc++,pDst++ )
+				{
+					__m128i newSrc = _mm_load_si128( pSrc );
+					__m128i output = _mm_or_si128(
+						_mm_srli_si128( prevSrc,4 ),_mm_slli_si128( newSrc,12 ) );
+					_mm_store_si128( pDst,output );
+					prevSrc = newSrc;
+				}
+				// finish off the last section that contains dest pixels that will not be overwritten
+				const __m128i dstFinal = _mm_slli_si128(
+					_mm_srli_si128( _mm_load_si128( pDst ),12 ),12 );
+				__m128i output = _mm_or_si128(
+					_mm_srli_si128( prevSrc,4 ),dstFinal );
+				_mm_store_si128( pDst,output );
+			}
+			break;
+		}
+	}
+	void BltSSESrcAlignedTemplated( Vei2 dstPt,const RectI& srcRect,const Surface& src )
+	{
+		const int alignment = dstPt.x % 4;
+		switch( alignment )
+		{
+		case 0:
+			BltSSESrcDstAligned( dstPt,srcRect,src );
+			break;
+		case 1:
+			BltSSESrcAlignedTemplate<1>( dstPt,srcRect,src );
+			break;
+		case 2:
+			BltSSESrcAlignedTemplate<2>( dstPt,srcRect,src );
+			break;
+		case 3:
+			BltSSESrcAlignedTemplate<3>( dstPt,srcRect,src );
+			break;
+		}
+	}
+	void BltSSSE3SrcAlignedTemplated( Vei2 dstPt,const RectI& srcRect,const Surface& src )
+	{
+		const int alignment = dstPt.x % 4;
+		switch( alignment )
+		{
+		case 0:
+			BltSSESrcDstAligned( dstPt,srcRect,src );
+			break;
+		case 1:
+			BltSSSE3SrcAlignedTemplate<1>( dstPt,srcRect,src );
+			break;
+		case 2:
+			BltSSSE3SrcAlignedTemplate<2>( dstPt,srcRect,src );
+			break;
+		case 3:
+			BltSSSE3SrcAlignedTemplate<3>( dstPt,srcRect,src );
+			break;
+		}
+	}
+	void BltSSE( Vei2 dstPt,const RectI& srcRect,const Surface& src )
+	{
+		if( srcRect.GetWidth() < 4 )
+		{
+			Blt( dstPt,srcRect,src );
+			return;
+		}
+
+		const int srcLeftAligned = ( srcRect.left + 3 ) & ~0x03;
+		const int srcRightAligned = srcRect.right & ~0x03;
+		if( srcLeftAligned == srcRect.left && srcRightAligned == srcRect.right )
+		{
+			BltSSESrcAlignedTemplated( dstPt,srcRect,src );
+			return;
+		}
+
+		const int alignment = ( dstPt.x + ( srcLeftAligned - srcRect.left ) ) & 0x03;
+		switch( alignment )
+		{
+		case 0:
+			BltSSEDstAligned( dstPt,srcRect,src,srcLeftAligned,srcRightAligned );
+			break;
+		case 1:
+			BltSSETemplate<1>( dstPt,srcRect,src,srcLeftAligned,srcRightAligned );
+			break;
+		case 2:
+			BltSSETemplate<2>( dstPt,srcRect,src,srcLeftAligned,srcRightAligned );
+			break;
+		case 3:
+			BltSSETemplate<3>( dstPt,srcRect,src,srcLeftAligned,srcRightAligned );
+			break;
+		}
+	}
+	void BltSSSE3( Vei2 dstPt,const RectI& srcRect,const Surface& src )
+	{
+		if( srcRect.GetWidth() < 4 )
+		{
+			Blt( dstPt,srcRect,src );
+			return;
+		}
+
+		const int srcLeftAligned = ( srcRect.left + 3 ) & ~0x03;
+		const int srcRightAligned = srcRect.right & ~0x03;
+		if( srcLeftAligned == srcRect.left && srcRightAligned == srcRect.right )
+		{
+			BltSSSE3SrcAlignedTemplated( dstPt,srcRect,src );
+			return;
+		}
+
+		const int alignment = ( dstPt.x + ( srcLeftAligned - srcRect.left ) ) & 0x03;
+		switch( alignment )
+		{
+		case 0:
+			BltSSEDstAligned( dstPt,srcRect,src,srcLeftAligned,srcRightAligned );
+			break;
+		case 1:
+			BltSSSE3Template<1>( dstPt,srcRect,src,srcLeftAligned,srcRightAligned );
+			break;
+		case 2:
+			BltSSSE3Template<2>( dstPt,srcRect,src,srcLeftAligned,srcRightAligned );
+			break;
+		case 3:
+			BltSSSE3Template<3>( dstPt,srcRect,src,srcLeftAligned,srcRightAligned );
+			break;
+		}
+	}
+	void BltSSEU( Vei2 dstPt,const RectI& srcRect,const Surface& src )
+	{
+		if( srcRect.GetWidth() < 4 )
+		{
+			Blt( dstPt,srcRect,src );
+			return;
+		}
+
+		const int overhang = srcRect.GetWidth() & 0x03;
+		const int srcPitch = src.GetPixelPitch();
+		const int dstPitch = GetPixelPitch();
+		for( int ySrc = srcRect.top,ySrcEnd = srcRect.bottom,yDst = dstPt.y;
+			ySrc < ySrcEnd; ySrc++,yDst++ )
+		{
+			const __m128i* pSrc = reinterpret_cast<const __m128i*>(
+				&src.GetBufferConst()[srcRect.left + srcPitch * ySrc] );
+			// divide by 4 because were working with 128-bit pointer arithmetic
+			const __m128i* const pSrcEnd = pSrc + ( srcRect.GetWidth() - overhang ) / 4;
+			__m128i* pDst = reinterpret_cast<__m128i*>(
+				&GetBuffer()[dstPt.x + dstPitch * yDst] );
+			for( ; pSrc < pSrcEnd; pSrc++,pDst++ )
+			{
+				_mm_storeu_si128( pDst,_mm_loadu_si128( pSrc ) );
+			}
+
+			const Color* pSrc2 = reinterpret_cast<const Color*>( pSrc );
+			const Color* const pSrcEnd2 = pSrc2 + overhang;
+			Color* pDst2 = reinterpret_cast<Color*>( pDst );
+			for( ; pSrc2 < pSrcEnd2; pSrc2++,pDst2++ )
+			{
+				*pDst2 = *pSrc2;
+			}
+		}
+	}
+	void BltSSEUDstA( Vei2 dstPt,const RectI& srcRect,const Surface& src )
+	{
+		if( srcRect.GetWidth() < 4 )
+		{
+			Blt( dstPt,srcRect,src );
+			return;
+		}
+
+		const int dstLeftAligned = ( dstPt.x + 3 ) & ~0x03;
+		const int dstRightAligned = ( dstPt.x + srcRect.GetWidth() ) & ~0x03;
+		const int srcPitch = src.GetPixelPitch();
+		const int dstPitch = GetPixelPitch();
+		for( int ySrc = srcRect.top,ySrcEnd = srcRect.bottom,yDst = dstPt.y;
+			ySrc < ySrcEnd; ySrc++,yDst++ )
+		{
+			// preamble
+			const Color* pSrc = &src.GetBufferConst()[srcRect.left + srcPitch * ySrc];
+			const Color* const pSrcEnd = pSrc + ( dstLeftAligned - dstPt.x );
+			Color* pDst = &GetBuffer()[dstPt.x + dstPitch * yDst];
+			for( ; pSrc < pSrcEnd; pSrc++,pDst++ )
+			{
+				*pDst = *pSrc;
+			}
+
+			// main loop
+			const __m128i* pSrc2 = reinterpret_cast<const __m128i*>( pSrc );
+			// divide by 4 because were working with 128-bit pointer arithmetic
+			const __m128i* const pSrcEnd2 = pSrc2 + ( dstRightAligned - dstLeftAligned ) / 4;
+			__m128i* pDst2 = reinterpret_cast<__m128i*>( pDst );
+			for( ; pSrc2 < pSrcEnd2; pSrc2++,pDst2++ )
+			{
+				_mm_store_si128( pDst2,_mm_loadu_si128( pSrc2 ) );
+			}
+
+			// post amble
+			const Color* pSrc3 = reinterpret_cast<const Color*>( pSrc2 );
+			const Color* const pSrcEnd3 = pSrc3 + 
+				( ( dstPt.x + srcRect.GetWidth() ) - dstRightAligned );
+			Color* pDst3 = reinterpret_cast<Color*>( pDst2 );
+			for( ; pSrc3 < pSrcEnd3; pSrc3++,pDst3++ )
+			{
+				*pDst3 = *pSrc3;
+			}
+		}
+	}
+	void BltSSEUSrcA( Vei2 dstPt,const RectI& srcRect,const Surface& src )
+	{
+		if( srcRect.GetWidth() < 4 )
+		{
+			Blt( dstPt,srcRect,src );
+			return;
+		}
+
+		const int srcLeftAligned = ( srcRect.left + 3 ) & ~0x03;
+		const int srcRightAligned = srcRect.right & ~0x03;
+		const int srcPitch = src.GetPixelPitch();
+		const int dstPitch = GetPixelPitch();
+		for( int ySrc = srcRect.top,ySrcEnd = srcRect.bottom,yDst = dstPt.y;
+			ySrc < ySrcEnd; ySrc++,yDst++ )
+		{
+			// preamble
+			const Color* pSrc = &src.GetBufferConst()[srcRect.left + srcPitch * ySrc];
+			const Color* const pSrcEnd = pSrc + ( srcLeftAligned - srcRect.left );
+			Color* pDst = &GetBuffer()[dstPt.x + dstPitch * yDst];
+			for( ; pSrc < pSrcEnd; pSrc++,pDst++ )
+			{
+				*pDst = *pSrc;
+			}
+
+			// main loop
+			const __m128i* pSrc2 = reinterpret_cast<const __m128i*>( pSrc );
+			// divide by 4 because were working with 128-bit pointer arithmetic
+			const __m128i* const pSrcEnd2 = pSrc2 + ( srcRightAligned - srcLeftAligned ) / 4;
+			__m128i* pDst2 = reinterpret_cast<__m128i*>( pDst );
+			for( ; pSrc2 < pSrcEnd2; pSrc2++,pDst2++ )
+			{
+				_mm_storeu_si128( pDst2,_mm_load_si128( pSrc2 ) );
+			}
+
+			// post amble
+			const Color* pSrc3 = reinterpret_cast<const Color*>( pSrc2 );
+			const Color* const pSrcEnd3 = pSrc3 +
+				( srcRect.right - srcRightAligned );
+			Color* pDst3 = reinterpret_cast<Color*>( pDst2 );
+			for( ; pSrc3 < pSrcEnd3; pSrc3++,pDst3++ )
+			{
+				*pDst3 = *pSrc3;
+			}
+		}
+	}
+	void BltAlphaPremultipliedSSSE3USrcA( Vei2 dstPt,const RectI& srcRect,const Surface& src )
+	{
+		if( srcRect.GetWidth() < 4 )
+		{
+			BltAlphaPremultipliedPacked( dstPt,srcRect,src );
+			return;
+		}
+
+		// constants
+		const __m128i zero = _mm_setzero_si128();
+		const __m128i alphaShuffleLo = _mm_set_epi8(
+			128u,128u,128u,7u,128u,7u,128u,7u,
+			128u,128u,128u,3u,128u,3u,128u,3u );
+		const __m128i alphaShuffleHi = _mm_set_epi8(
+			128u,128u,128u,15u,128u,15u,128u,15u,
+			128u,128u,128u,11u,128u,11u,128u,11u );
+		const auto DoBlend = [=]( const __m128i dstPixels,const __m128i srcPixels )
+		{
+			const __m128i dstLo16 = _mm_unpacklo_epi8( zero,dstPixels );
+			const __m128i dstHi16 = _mm_unpackhi_epi8( zero,dstPixels );
+			const __m128i calphaLo = _mm_shuffle_epi8( srcPixels,alphaShuffleLo );
+			const __m128i calphaHi = _mm_shuffle_epi8( srcPixels,alphaShuffleHi );
+			const __m128i rsltDstLo16 = _mm_mulhi_epu16( dstLo16,calphaLo );
+			const __m128i rsltDstHi16 = _mm_mulhi_epu16( dstHi16,calphaHi );
+			const __m128i rsltDst = _mm_packus_epi16( rsltDstLo16,rsltDstHi16 );
+			const __m128i rslt = _mm_add_epi8( rsltDst,srcPixels );
+			return rslt;
+		};
+
+		// setup alignment bulshit
+		const int srcLeftAligned = ( srcRect.left + 3 ) & ~0x03;
+		const int srcRightAligned = srcRect.right & ~0x03;
+		const int srcPitch = src.GetPixelPitch();
+		const int dstPitch = GetPixelPitch();
+		for( int ySrc = srcRect.top,ySrcEnd = srcRect.bottom,yDst = dstPt.y;
+			ySrc < ySrcEnd; ySrc++,yDst++ )
+		{
+			// preamble
+			const Color* pSrc = &src.GetBufferConst()[srcRect.left + srcPitch * ySrc];
+			const Color* const pSrcEnd = pSrc + ( srcLeftAligned - srcRect.left );
+			Color* pDst = &GetBuffer()[dstPt.x + dstPitch * yDst];
+			const unsigned int mask = 0xFF;
+			for( ; pSrc < pSrcEnd; pSrc++,pDst++ )
+			{
+				// load (premultiplied) source and destination pixels
+				const Color d = *pDst;
+				const Color s = *pSrc;
+
+				// extract alpha complement
+				const unsigned int ca = s >> 24;
+
+				// unpack source components and blend channels
+				const unsigned int rsltRed = ( ( ( d >> 16 ) & mask ) * ca ) >> 8;
+				const unsigned int rsltGreen = ( ( ( d >> 8 ) & mask ) * ca ) >> 8;
+				const unsigned int rsltBlue = ( ( d         & mask ) * ca ) >> 8;
+
+				// pack channels back into pixel, add premultiplied packed components, and fire pixel onto surface
+				*pDst = ( ( rsltRed << 16 ) | ( rsltGreen << 8 ) | rsltBlue ) + s;
+			}
+
+			// main loop
+			const __m128i* pSrc2 = reinterpret_cast<const __m128i*>( pSrc );
+			// divide by 4 because were working with 128-bit pointer arithmetic
+			const __m128i* const pSrcEnd2 = pSrc2 + ( srcRightAligned - srcLeftAligned ) / 4;
+			__m128i* pDst2 = reinterpret_cast<__m128i*>( pDst );
+			for( ; pSrc2 < pSrcEnd2; pSrc2++,pDst2++ )
+			{
+				_mm_storeu_si128( pDst2,DoBlend( _mm_loadu_si128( pDst2 ),_mm_load_si128( pSrc2 ) ) );
+			}
+
+			// post amble
+			const Color* pSrc3 = reinterpret_cast<const Color*>( pSrc2 );
+			const Color* const pSrcEnd3 = pSrc3 +
+				( srcRect.right - srcRightAligned );
+			Color* pDst3 = reinterpret_cast<Color*>( pDst2 );
+			for( ; pSrc3 < pSrcEnd3; pSrc3++,pDst3++ )
+			{
+				// load (premultiplied) source and destination pixels
+				const Color d = *pDst3;
+				const Color s = *pSrc3;
+
+				// extract alpha complement
+				const unsigned int ca = s >> 24;
+
+				// unpack source components and blend channels
+				const unsigned int rsltRed = ( ( ( d >> 16 ) & mask ) * ca ) >> 8;
+				const unsigned int rsltGreen = ( ( ( d >> 8 ) & mask ) * ca ) >> 8;
+				const unsigned int rsltBlue = ( ( d         & mask ) * ca ) >> 8;
+
+				// pack channels back into pixel, add premultiplied packed components, and fire pixel onto surface
+				*pDst3 = ( ( rsltRed << 16 ) | ( rsltGreen << 8 ) | rsltBlue ) + s;
+			}
+		}
+	}
+	void BltAlphaPremultipliedSSSE3UDstA( Vei2 dstPt,const RectI& srcRect,const Surface& src )
+	{
+		if( srcRect.GetWidth() < 4 )
+		{
+			BltAlphaPremultipliedPacked( dstPt,srcRect,src );
+			return;
+		}
+
+		// constants
+		const __m128i zero = _mm_setzero_si128();
+		const __m128i alphaShuffleLo = _mm_set_epi8(
+			128u,128u,128u,7u,128u,7u,128u,7u,
+			128u,128u,128u,3u,128u,3u,128u,3u );
+		const __m128i alphaShuffleHi = _mm_set_epi8(
+			128u,128u,128u,15u,128u,15u,128u,15u,
+			128u,128u,128u,11u,128u,11u,128u,11u );
+		const auto DoBlend = [=]( const __m128i dstPixels,const __m128i srcPixels )
+		{
+			const __m128i dstLo16 = _mm_unpacklo_epi8( zero,dstPixels );
+			const __m128i dstHi16 = _mm_unpackhi_epi8( zero,dstPixels );
+			const __m128i calphaLo = _mm_shuffle_epi8( srcPixels,alphaShuffleLo );
+			const __m128i calphaHi = _mm_shuffle_epi8( srcPixels,alphaShuffleHi );
+			const __m128i rsltDstLo16 = _mm_mulhi_epu16( dstLo16,calphaLo );
+			const __m128i rsltDstHi16 = _mm_mulhi_epu16( dstHi16,calphaHi );
+			const __m128i rsltDst = _mm_packus_epi16( rsltDstLo16,rsltDstHi16 );
+			const __m128i rslt = _mm_add_epi8( rsltDst,srcPixels );
+			return rslt;
+		};
+
+		const int dstLeftAligned = ( dstPt.x + 3 ) & ~0x03;
+		const int dstRightAligned = ( dstPt.x + srcRect.GetWidth() ) & ~0x03;
+		const int srcPitch = src.GetPixelPitch();
+		const int dstPitch = GetPixelPitch();
+		for( int ySrc = srcRect.top,ySrcEnd = srcRect.bottom,yDst = dstPt.y;
+			ySrc < ySrcEnd; ySrc++,yDst++ )
+		{
+			// preamble
+			const unsigned int mask = 0xFF;
+			const Color* pSrc = &src.GetBufferConst()[srcRect.left + srcPitch * ySrc];
+			const Color* const pSrcEnd = pSrc + ( dstLeftAligned - dstPt.x );
+			Color* pDst = &GetBuffer()[dstPt.x + dstPitch * yDst];
+			for( ; pSrc < pSrcEnd; pSrc++,pDst++ )
+			{
+				// load (premultiplied) source and destination pixels
+				const Color d = *pDst;
+				const Color s = *pSrc;
+
+				// extract alpha complement
+				const unsigned int ca = s >> 24;
+
+				// unpack source components and blend channels
+				const unsigned int rsltRed = ( ( ( d >> 16 ) & mask ) * ca ) >> 8;
+				const unsigned int rsltGreen = ( ( ( d >> 8 ) & mask ) * ca ) >> 8;
+				const unsigned int rsltBlue = ( ( d         & mask ) * ca ) >> 8;
+
+				// pack channels back into pixel, add premultiplied packed components, and fire pixel onto surface
+				*pDst = ( ( rsltRed << 16 ) | ( rsltGreen << 8 ) | rsltBlue ) + s;
+			}
+
+			// main loop
+			const __m128i* pSrc2 = reinterpret_cast<const __m128i*>( pSrc );
+			// divide by 4 because were working with 128-bit pointer arithmetic
+			const __m128i* const pSrcEnd2 = pSrc2 + ( dstRightAligned - dstLeftAligned ) / 4;
+			__m128i* pDst2 = reinterpret_cast<__m128i*>( pDst );
+			for( ; pSrc2 < pSrcEnd2; pSrc2++,pDst2++ )
+			{
+				_mm_store_si128( pDst2,DoBlend( _mm_load_si128( pDst2 ),_mm_loadu_si128( pSrc2 ) ) );
+			}
+
+			// post amble
+			const Color* pSrc3 = reinterpret_cast<const Color*>( pSrc2 );
+			const Color* const pSrcEnd3 = pSrc3 +
+				( ( dstPt.x + srcRect.GetWidth() ) - dstRightAligned );
+			Color* pDst3 = reinterpret_cast<Color*>( pDst2 );
+			for( ; pSrc3 < pSrcEnd3; pSrc3++,pDst3++ )
+			{
+				// load (premultiplied) source and destination pixels
+				const Color d = *pDst3;
+				const Color s = *pSrc3;
+
+				// extract alpha complement
+				const unsigned int ca = s >> 24;
+
+				// unpack source components and blend channels
+				const unsigned int rsltRed = ( ( ( d >> 16 ) & mask ) * ca ) >> 8;
+				const unsigned int rsltGreen = ( ( ( d >> 8 ) & mask ) * ca ) >> 8;
+				const unsigned int rsltBlue = ( ( d         & mask ) * ca ) >> 8;
+
+				// pack channels back into pixel, add premultiplied packed components, and fire pixel onto surface
+				*pDst3 = ( ( rsltRed << 16 ) | ( rsltGreen << 8 ) | rsltBlue ) + s;
+			}
+		}
+	}
+	void BltAlphaPremultipliedSSSE3( Vei2 dstPt,const RectI& srcRect,const Surface& src )
+	{
+		if( srcRect.GetWidth() < 4 )
+		{
+			BltAlphaPremultipliedPacked( dstPt,srcRect,src );
+			return;
+		}
+
+		const int srcLeftAligned = ( srcRect.left + 3 ) & ~0x03;
+		const int srcRightAligned = srcRect.right & ~0x03;
+		if( srcLeftAligned == srcRect.left && srcRightAligned == srcRect.right )
+		{
+			BltAlphaPremultipliedSSSE3SrcAlignedTemplated( dstPt,srcRect,src );
+			return;
+		}
+
+		const int alignment = ( dstPt.x + ( srcLeftAligned - srcRect.left ) ) & 0x03;
+		switch( alignment )
+		{
+		case 0:
+			BltAlphaPremultipliedSSSE3DstAligned( dstPt,srcRect,src,srcLeftAligned,srcRightAligned );
+			break;
+		case 1:
+			BltAlphaPremultipliedSSSE3Template<1>( dstPt,srcRect,src,srcLeftAligned,srcRightAligned );
+			break;
+		case 2:
+			BltAlphaPremultipliedSSSE3Template<2>( dstPt,srcRect,src,srcLeftAligned,srcRightAligned );
+			break;
+		case 3:
+			BltAlphaPremultipliedSSSE3Template<3>( dstPt,srcRect,src,srcLeftAligned,srcRightAligned );
+			break;
+		}
+	}
+	void BltAlphaPremultipliedSSSE3UDstAClip( Vei2 dstPt,const RectI& srcRectIn,const Surface& src,const RectI& clip )
+	{
+		RectI srcRect = srcRectIn;
+		const int dstRight = dstPt.x + srcRect.GetWidth();
+		if( dstRight > clip.right )
+		{
+			srcRect.right -= dstPt.x + dstRight - clip.right;
+		}
+		const int dstBottom = dstPt.y + srcRect.GetHeight();
+		if( dstBottom > clip.bottom )
+		{
+			srcRect.bottom -= dstPt.y + dstBottom - clip.bottom;
+		}
+		if( dstPt.x < clip.left )
+		{
+			srcRect.left += clip.left - dstPt.x;
+			dstPt.x = clip.left;
+		}
+		if( dstPt.y < clip.top )
+		{
+			srcRect.top += clip.top - dstPt.y;
+			dstPt.y = clip.top;
+		}
+		BltAlphaPremultipliedSSSE3UDstA( dstPt,srcRect,src );
+	}
+
 private:
 	static unsigned int CalculatePixelPitch( unsigned int width,unsigned int byteAlignment )
 	{
@@ -1020,6 +1672,514 @@ private:
 		const unsigned int pixelAlignment = byteAlignment / sizeof( Color );
 		return width + ( pixelAlignment - width % pixelAlignment ) % pixelAlignment;
 	}
+	
+	////////////////////////////////////////////////////////////////////////
+	//  Stuff for SSE Blt
+	//
+	template<int alignment>
+	void BltSSESrcAlignedRowTemplate( const __m128i*& pSrc,
+		const __m128i* const pSrcEnd,__m128i*& pDst )
+	{
+		// prime the pump with destination pixels that will not be overwritten (pre-shift)
+		__m128i prevSrc = _mm_slli_si128( _mm_load_si128( pDst ),( 4 - alignment ) * 4 );
+		for( ; pSrc < pSrcEnd; pSrc++,pDst++ )
+		{
+			const __m128i newSrc = _mm_load_si128( pSrc );
+			const __m128i output = _mm_or_si128(
+				_mm_srli_si128( prevSrc,( 4 - alignment ) * 4 ),_mm_slli_si128( newSrc,alignment * 4 ) );
+			_mm_store_si128( pDst,output );
+			prevSrc = newSrc;
+		}
+		// finish off the last section that contains dest pixels that will not be overwritten
+		const __m128i dstFinal = _mm_slli_si128(
+			_mm_srli_si128( _mm_load_si128( pDst ),alignment * 4 ),alignment * 4 );
+		const __m128i output = _mm_or_si128(
+			_mm_srli_si128( prevSrc,( 4 - alignment ) * 4 ),dstFinal );
+		_mm_store_si128( pDst,output );
+	}
+	template<int alignment>
+	void BltSSSE3SrcAlignedRowTemplate( const __m128i*& pSrc,
+		const __m128i* const pSrcEnd,__m128i*& pDst )
+	{
+		// prime the pump with destination pixels that will not be overwritten (pre-shift)
+		__m128i prevSrc = _mm_slli_si128( _mm_load_si128( pDst ),( 4 - alignment ) * 4 );
+		for( ; pSrc < pSrcEnd; pSrc++,pDst++ )
+		{
+			const __m128i newSrc = _mm_load_si128( pSrc );
+			const __m128i output = _mm_alignr_epi8( newSrc,prevSrc,( 4 - alignment ) * 4 );
+			_mm_store_si128( pDst,output );
+			prevSrc = newSrc;
+		}
+		// finish off the last section that contains dest pixels that will not be overwritten
+		const __m128i dstFinal = _mm_srli_si128( _mm_load_si128( pDst ),alignment * 4 );
+		const __m128i output = _mm_alignr_epi8( dstFinal,prevSrc,( 4 - alignment ) * 4 );
+		_mm_store_si128( pDst,output );
+	}
+	void BltSSESrcDstAlignedRow( const __m128i*& pSrc,
+		const __m128i* const pSrcEnd,__m128i*& pDst )
+	{
+		for( ; pSrc < pSrcEnd; pSrc++,pDst++ )
+		{
+			_mm_store_si128( pDst,_mm_load_si128( pSrc ) );
+		}
+	}
+
+	template<int alignment>
+	void BltSSESrcAlignedTemplate( Vei2 dstPt,const RectI& srcRect,
+		const Surface& src )
+	{
+		const int srcPitch = int( src.GetPixelPitch() );
+		const int dstPitch = int( GetPixelPitch() );
+
+		for( int ySrc = srcRect.top,ySrcEnd = srcRect.bottom,yDst = dstPt.y;
+			ySrc < ySrcEnd; ySrc++,yDst++ )
+		{
+			const __m128i* pSrc = reinterpret_cast<const __m128i*>(
+				&src.GetBufferConst()[srcRect.left + srcPitch * ySrc] );
+			// divide by 4 because were working with 128-bit pointer arithmetic
+			const __m128i* const pSrcEnd = pSrc + srcRect.GetWidth() / 4;
+			// round down to nearest multiple of 4 pixel (down to nearest 16-byte aligned)
+			__m128i* pDst = reinterpret_cast<__m128i*>(
+				&GetBuffer()[( dstPt.x & ~0x03 ) + dstPitch * yDst] );
+
+			BltSSESrcAlignedRowTemplate<alignment>( pSrc,pSrcEnd,pDst );
+		}
+	}
+	template<int alignment>
+	void BltSSSE3SrcAlignedTemplate( Vei2 dstPt,const RectI& srcRect,
+		const Surface& src )
+	{
+		const int srcPitch = int( src.GetPixelPitch() );
+		const int dstPitch = int( GetPixelPitch() );
+
+		for( int ySrc = srcRect.top,ySrcEnd = srcRect.bottom,yDst = dstPt.y;
+			ySrc < ySrcEnd; ySrc++,yDst++ )
+		{
+			const __m128i* pSrc = reinterpret_cast<const __m128i*>(
+				&src.GetBufferConst()[srcRect.left + srcPitch * ySrc] );
+			// divide by 4 because were working with 128-bit pointer arithmetic
+			const __m128i* const pSrcEnd = pSrc + srcRect.GetWidth() / 4;
+			// round down to nearest multiple of 4 pixel (down to nearest 16-byte aligned)
+			__m128i* pDst = reinterpret_cast<__m128i*>(
+				&GetBuffer()[( dstPt.x & ~0x03 ) + dstPitch * yDst] );
+
+			BltSSSE3SrcAlignedRowTemplate<alignment>( pSrc,pSrcEnd,pDst );
+		}
+	}
+	
+	template<int alignment>
+	void BltSSETemplate( Vei2 dstPt,const RectI& srcRect,
+		const Surface& src,const int srcLeftAligned,const int srcRightAligned )
+	{
+		const int srcPitch = int( src.GetPixelPitch() );
+		const int dstPitch = int( GetPixelPitch() );
+
+		for( int ySrc = srcRect.top,ySrcEnd = srcRect.bottom,yDst = dstPt.y;
+			ySrc < ySrcEnd; ySrc++,yDst++ )
+		{
+			const Color* pSrc = &src.GetBufferConst()[srcRect.left + srcPitch * ySrc];
+			Color* pDst = &GetBuffer()[dstPt.x + dstPitch * yDst];
+			for( const Color* const pSrcEnd = pSrc + ( srcLeftAligned - srcRect.left );
+				pSrc < pSrcEnd; pSrc++,pDst++ )
+			{
+				*pDst = *pSrc;
+			}
+
+			const __m128i* pSrc2 = reinterpret_cast<const __m128i*>( pSrc );
+			// divide by 4 because were working with 128-bit pointer arithmetic
+			const __m128i* const pSrcEnd2 = pSrc2 + (srcRightAligned - srcLeftAligned) / 4;
+			// round down to nearest multiple of 4 pixel (down to nearest 16-byte aligned)
+			__m128i* pDst2 = reinterpret_cast<__m128i*>( uintptr_t( pDst ) & ~0x0F );
+
+			BltSSESrcAlignedRowTemplate<alignment>( pSrc2,pSrcEnd2,pDst2 );
+			
+			const Color* pSrc3 = reinterpret_cast<const Color*>( pSrc2 );
+			Color* pDst3 = reinterpret_cast<Color*>( pDst2 ) + alignment;
+			for( const Color* const pSrcEnd3 = 
+				pSrc3 + ( srcRect.right - srcRightAligned );
+				pSrc3 < pSrcEnd3; pSrc3++,pDst3++ )
+			{
+				*pDst3 = *pSrc3;
+			}
+		}
+	}
+	template<int alignment>
+	void BltSSSE3Template( Vei2 dstPt,const RectI& srcRect,
+		const Surface& src,const int srcLeftAligned,const int srcRightAligned )
+	{
+		const int srcPitch = int( src.GetPixelPitch() );
+		const int dstPitch = int( GetPixelPitch() );
+
+		for( int ySrc = srcRect.top,ySrcEnd = srcRect.bottom,yDst = dstPt.y;
+			ySrc < ySrcEnd; ySrc++,yDst++ )
+		{
+			const Color* pSrc = &src.GetBufferConst()[srcRect.left + srcPitch * ySrc];
+			Color* pDst = &GetBuffer()[dstPt.x + dstPitch * yDst];
+			for( const Color* const pSrcEnd = pSrc + ( srcLeftAligned - srcRect.left );
+				pSrc < pSrcEnd; pSrc++,pDst++ )
+			{
+				*pDst = *pSrc;
+			}
+
+			const __m128i* pSrc2 = reinterpret_cast<const __m128i*>( pSrc );
+			// divide by 4 because were working with 128-bit pointer arithmetic
+			const __m128i* const pSrcEnd2 = pSrc2 + ( srcRightAligned - srcLeftAligned ) / 4;
+			// round down to nearest multiple of 4 pixel (down to nearest 16-byte aligned)
+			__m128i* pDst2 = reinterpret_cast<__m128i*>( uintptr_t( pDst ) & ~0x0F );
+
+			BltSSSE3SrcAlignedRowTemplate<alignment>( pSrc2,pSrcEnd2,pDst2 );
+
+			const Color* pSrc3 = reinterpret_cast<const Color*>( pSrc2 );
+			// suspicious
+			Color* pDst3 = reinterpret_cast<Color*>(pDst2) + alignment;
+			for( const Color* const pSrcEnd3 =
+				pSrc3 + ( srcRect.right - srcRightAligned );
+				pSrc3 < pSrcEnd3; pSrc3++,pDst3++ )
+			{
+				*pDst3 = *pSrc3;
+			}
+		}
+	}
+	// case where destination is aligned AFTER loop peeling to handle source alignment
+	void BltSSEDstAligned( Vei2 dstPt,const RectI& srcRect,
+		const Surface& src,const int srcLeftAligned,const int srcRightAligned )
+	{
+		const int srcPitch = int( src.GetPixelPitch() );
+		const int dstPitch = int( GetPixelPitch() );
+
+		for( int ySrc = srcRect.top,ySrcEnd = srcRect.bottom,yDst = dstPt.y;
+			ySrc < ySrcEnd; ySrc++,yDst++ )
+		{
+			const Color* pSrc = &src.GetBufferConst()[srcRect.left + srcPitch * ySrc];
+			Color* pDst = &GetBuffer()[dstPt.x + dstPitch * yDst];
+			for( const Color* const pSrcEnd = pSrc + ( srcLeftAligned - srcRect.left );
+				pSrc < pSrcEnd; pSrc++,pDst++ )
+			{
+				*pDst = *pSrc;
+			}
+
+			const __m128i* pSrc2 = reinterpret_cast<const __m128i*>( pSrc );
+			// divide by 4 because were working with 128-bit pointer arithmetic
+			const __m128i* const pSrcEnd2 = pSrc2 + ( srcRightAligned - srcLeftAligned ) / 4;
+			// round down to nearest multiple of 4 pixel (down to nearest 16-byte aligned)
+			__m128i* pDst2 = reinterpret_cast<__m128i*>( uintptr_t( pDst ) & ~0x0F );
+
+			BltSSESrcDstAlignedRow( pSrc2,pSrcEnd2,pDst2 );
+
+			const Color* pSrc3 = reinterpret_cast<const Color*>( pSrc2 );
+			Color* pDst3 = reinterpret_cast<Color*>(pDst2);
+			for( const Color* const pSrcEnd3 =
+				pSrc3 + ( srcRect.right - srcRightAligned );
+				pSrc3 < pSrcEnd3; pSrc3++,pDst3++ )
+			{
+				*pDst3 = *pSrc3;
+			}
+		}
+	}
+
+	////////////////////////////////////////////////////////////////////////
+	//  Stuff for SSE BltAlpha
+	//
+
+	// This was a little tricky!!
+	template<int alignment>
+	void BltAlphaPremultipliedSSSE3SrcAlignedRowTemplate( const __m128i*& pSrc,
+		const __m128i* const pSrcEnd,__m128i*& pDst )
+	{
+		// constants
+		const __m128i zero = _mm_setzero_si128();
+		const __m128i alphaShuffleLo = _mm_set_epi8(
+			128u,128u,128u,7u,128u,7u,128u,7u,
+			128u,128u,128u,3u,128u,3u,128u,3u );
+		const __m128i alphaShuffleHi = _mm_set_epi8(
+			128u,128u,128u,15u,128u,15u,128u,15u,
+			128u,128u,128u,11u,128u,11u,128u,11u );
+		const auto DoBlend = [=]( const __m128i dstPixels,const __m128i srcPixels )
+		{
+			const __m128i dstLo16 = _mm_unpacklo_epi8( zero,dstPixels );
+			const __m128i dstHi16 = _mm_unpackhi_epi8( zero,dstPixels );
+			const __m128i calphaLo = _mm_shuffle_epi8( srcPixels,alphaShuffleLo );
+			const __m128i calphaHi = _mm_shuffle_epi8( srcPixels,alphaShuffleHi );
+			const __m128i rsltDstLo16 = _mm_mulhi_epu16( dstLo16,calphaLo );
+			const __m128i rsltDstHi16 = _mm_mulhi_epu16( dstHi16,calphaHi );
+			const __m128i rsltDst = _mm_packus_epi16( rsltDstLo16,rsltDstHi16 );
+			const __m128i rslt = _mm_add_epi8( rsltDst,srcPixels );
+			return rslt;
+		};
+
+		// prime the pump with FF ca pixels (completely transparent) that won't overwrite
+		__m128i prevSrc = _mm_cmpeq_epi32( alphaShuffleLo,alphaShuffleLo );
+		prevSrc = _mm_slli_epi32( prevSrc,24 );
+
+		for( ; pSrc < pSrcEnd; pSrc++,pDst++ )
+		{
+			const __m128i newSrc = _mm_load_si128( pSrc );
+			const __m128i output = _mm_alignr_epi8( newSrc,prevSrc,( 4 - alignment ) * 4 );
+			_mm_store_si128( pDst,DoBlend( _mm_load_si128( pDst ),output ) );
+			prevSrc = newSrc;
+		}
+		// finish off the last section that contains dest pixels that will not be overwritten
+		__m128i dstFinal = _mm_cmpeq_epi32( alphaShuffleLo,alphaShuffleLo );
+		dstFinal = _mm_slli_epi32( dstFinal,24 );
+      	const __m128i output = _mm_alignr_epi8( dstFinal,prevSrc,( 4 - alignment ) * 4 );
+		_mm_store_si128( pDst,DoBlend( _mm_load_si128( pDst ),output ) );
+	}
+	template<int alignment>
+	void BltAlphaPremultipliedSSSE3Template( Vei2 dstPt,const RectI& srcRect,
+		const Surface& src,const int srcLeftAligned,const int srcRightAligned )
+	{
+		const int srcPitch = int( src.GetPixelPitch() );
+		const int dstPitch = int( GetPixelPitch() );
+
+		for( int ySrc = srcRect.top,ySrcEnd = srcRect.bottom,yDst = dstPt.y;
+			ySrc < ySrcEnd; ySrc++,yDst++ )
+		{
+			const unsigned int mask = 0xFF;
+			const Color* pSrc = &src.GetBufferConst()[srcRect.left + srcPitch * ySrc];
+			Color* pDst = &GetBuffer()[dstPt.x + dstPitch * yDst];
+			for( const Color* const pSrcEnd = pSrc + ( srcLeftAligned - srcRect.left );
+				pSrc < pSrcEnd; pSrc++,pDst++ )
+			{
+				// load (premultiplied) source and destination pixels
+				const Color d = *pDst;
+				const Color s = *pSrc;
+
+				// extract alpha complement
+				const unsigned int ca = s >> 24;
+
+				// unpack source components and blend channels
+				const unsigned int rsltRed = ( ( ( d >> 16 ) & mask ) * ca ) >> 8;
+				const unsigned int rsltGreen = ( ( ( d >> 8 ) & mask ) * ca ) >> 8;
+				const unsigned int rsltBlue = ( ( d         & mask ) * ca ) >> 8;
+
+				// pack channels back into pixel, add premultiplied packed components, and fire pixel onto surface
+				*pDst = ( ( rsltRed << 16 ) | ( rsltGreen << 8 ) | rsltBlue ) + s;
+			}
+
+			const __m128i* pSrc2 = reinterpret_cast<const __m128i*>( pSrc );
+			// divide by 4 because were working with 128-bit pointer arithmetic
+			const __m128i* const pSrcEnd2 = pSrc2 + ( srcRightAligned - srcLeftAligned ) / 4;
+			// round down to nearest multiple of 4 pixel (down to nearest 16-byte aligned)
+			__m128i* pDst2 = reinterpret_cast<__m128i*>( uintptr_t( pDst ) & ~0x0F );
+
+			BltAlphaPremultipliedSSSE3SrcAlignedRowTemplate<alignment>( pSrc2,pSrcEnd2,pDst2 );
+
+			const Color* pSrc3 = reinterpret_cast<const Color*>( pSrc2 );
+			Color* pDst3 = reinterpret_cast<Color*>(pDst2)+alignment;
+			for( const Color* const pSrcEnd3 =
+				pSrc3 + ( srcRect.right - srcRightAligned );
+				pSrc3 < pSrcEnd3; pSrc3++,pDst3++ )
+			{
+				// load (premultiplied) source and destination pixels
+				// i forgot to change to '3' when copypasta
+				const Color d = *pDst3;
+				const Color s = *pSrc3;
+
+				// extract alpha complement
+				const unsigned int ca = s >> 24;
+
+				// unpack source components and blend channels
+				const unsigned int rsltRed = ( ( ( d >> 16 ) & mask ) * ca ) >> 8;
+				const unsigned int rsltGreen = ( ( ( d >> 8 ) & mask ) * ca ) >> 8;
+				const unsigned int rsltBlue = ( ( d         & mask ) * ca ) >> 8;
+
+				// pack channels back into pixel, add premultiplied packed components, and fire pixel onto surface
+				*pDst3 = ( ( rsltRed << 16 ) | ( rsltGreen << 8 ) | rsltBlue ) + s;
+			}
+		}
+	}
+	void BltAlphaPremultipliedSSSE3DstAligned( Vei2 dstPt,const RectI& srcRect,
+		const Surface& src,const int srcLeftAligned,const int srcRightAligned )
+	{
+		// constants
+		const __m128i zero = _mm_setzero_si128();
+		const __m128i alphaShuffleLo = _mm_set_epi8(
+			128u,128u,128u,7u,128u,7u,128u,7u,
+			128u,128u,128u,3u,128u,3u,128u,3u );
+		const __m128i alphaShuffleHi = _mm_set_epi8(
+			128u,128u,128u,15u,128u,15u,128u,15u,
+			128u,128u,128u,11u,128u,11u,128u,11u );
+		const auto DoBlend = [=]( const __m128i dstPixels,const __m128i srcPixels )
+		{
+			const __m128i dstLo16 = _mm_unpacklo_epi8( zero,dstPixels );
+			const __m128i dstHi16 = _mm_unpackhi_epi8( zero,dstPixels );
+			const __m128i calphaLo = _mm_shuffle_epi8( srcPixels,alphaShuffleLo );
+			const __m128i calphaHi = _mm_shuffle_epi8( srcPixels,alphaShuffleHi );
+			const __m128i rsltDstLo16 = _mm_mulhi_epu16( dstLo16,calphaLo );
+			const __m128i rsltDstHi16 = _mm_mulhi_epu16( dstHi16,calphaHi );
+			const __m128i rsltDst = _mm_packus_epi16( rsltDstLo16,rsltDstHi16 );
+			const __m128i rslt = _mm_add_epi8( rsltDst,srcPixels );
+			return rslt;
+		};
+
+		const int srcPitch = int( src.GetPixelPitch() );
+		const int dstPitch = int( GetPixelPitch() );
+
+		for( int ySrc = srcRect.top,ySrcEnd = srcRect.bottom,yDst = dstPt.y;
+			ySrc < ySrcEnd; ySrc++,yDst++ )
+		{
+			const unsigned int mask = 0xFF;
+			const Color* pSrc = &src.GetBufferConst()[srcRect.left + srcPitch * ySrc];
+			Color* pDst = &GetBuffer()[dstPt.x + dstPitch * yDst];
+			for( const Color* const pSrcEnd = pSrc + ( srcLeftAligned - srcRect.left );
+				pSrc < pSrcEnd; pSrc++,pDst++ )
+			{
+				// load (premultiplied) source and destination pixels
+				const Color d = *pDst;
+				const Color s = *pSrc;
+
+				// extract alpha complement
+				const unsigned int ca = s >> 24;
+
+				// unpack source components and blend channels
+				const unsigned int rsltRed = ( ( ( d >> 16 ) & mask ) * ca ) >> 8;
+				const unsigned int rsltGreen = ( ( ( d >> 8 ) & mask ) * ca ) >> 8;
+				const unsigned int rsltBlue = ( ( d         & mask ) * ca ) >> 8;
+
+				// pack channels back into pixel, add premultiplied packed components, and fire pixel onto surface
+				*pDst = ( ( rsltRed << 16 ) | ( rsltGreen << 8 ) | rsltBlue ) + s;
+			}
+
+			const __m128i* pSrc2 = reinterpret_cast<const __m128i*>( pSrc );
+			// divide by 4 because were working with 128-bit pointer arithmetic
+			const __m128i* const pSrcEnd2 = pSrc2 + ( srcRightAligned - srcLeftAligned ) / 4;
+			// round down to nearest multiple of 4 pixel (down to nearest 16-byte aligned)
+			__m128i* pDst2 = reinterpret_cast<__m128i*>( uintptr_t( pDst ) & ~0x0F );
+
+			BltAlphaPremultipliedSSESrcDstAlignedRow( pSrc2,pSrcEnd2,pDst2 );
+
+			const Color* pSrc3 = reinterpret_cast<const Color*>( pSrc2 );
+			Color* pDst3 = reinterpret_cast<Color*>( pDst2 );
+			for( const Color* const pSrcEnd3 =
+				pSrc3 + ( srcRect.right - srcRightAligned );
+				pSrc3 < pSrcEnd3; pSrc3++,pDst3++ )
+			{
+				// load (premultiplied) source and destination pixels
+				const Color d = *pDst3;
+				const Color s = *pSrc3;
+
+				// extract alpha complement
+				const unsigned int ca = s >> 24;
+
+				// unpack source components and blend channels
+				const unsigned int rsltRed = ( ( ( d >> 16 ) & mask ) * ca ) >> 8;
+				const unsigned int rsltGreen = ( ( ( d >> 8 ) & mask ) * ca ) >> 8;
+				const unsigned int rsltBlue = ( ( d         & mask ) * ca ) >> 8;
+
+				// pack channels back into pixel, add premultiplied packed components, and fire pixel onto surface
+				*pDst3 = ( ( rsltRed << 16 ) | ( rsltGreen << 8 ) | rsltBlue ) + s;
+			}
+		}
+	}
+	void BltAlphaPremultipliedSSSE3SrcAlignedTemplated( Vei2 dstPt,const RectI& srcRect, const Surface& src )
+	{
+		const int alignment = dstPt.x % 4;
+		switch( alignment )
+		{
+		case 0:
+			BltAlphaPremultipliedSSESrcDstAligned( dstPt,srcRect,src );
+			break;
+		case 1:
+			BltAlphaPremultipliedSSSE3SrcAlignedTemplate<1>( dstPt,srcRect,src );
+			break;
+		case 2:
+			BltAlphaPremultipliedSSSE3SrcAlignedTemplate<2>( dstPt,srcRect,src );
+			break;
+		case 3:
+			BltAlphaPremultipliedSSSE3SrcAlignedTemplate<3>( dstPt,srcRect,src );
+			break;
+		}
+	}
+	template<int alignment>
+	void BltAlphaPremultipliedSSSE3SrcAlignedTemplate( Vei2 dstPt,const RectI& srcRect,
+		const Surface& src )
+	{
+		const int srcPitch = int( src.GetPixelPitch() );
+		const int dstPitch = int( GetPixelPitch() );
+
+		for( int ySrc = srcRect.top,ySrcEnd = srcRect.bottom,yDst = dstPt.y;
+			ySrc < ySrcEnd; ySrc++,yDst++ )
+		{
+			const __m128i* pSrc = reinterpret_cast<const __m128i*>(
+				&src.GetBufferConst()[srcRect.left + srcPitch * ySrc] );
+			// divide by 4 because were working with 128-bit pointer arithmetic
+			const __m128i* const pSrcEnd = pSrc + srcRect.GetWidth() / 4;
+			// round down to nearest multiple of 4 pixel (down to nearest 16-byte aligned)
+			__m128i* pDst = reinterpret_cast<__m128i*>(
+				&GetBuffer()[( dstPt.x & ~0x03 ) + dstPitch * yDst] );
+
+			BltAlphaPremultipliedSSSE3SrcAlignedRowTemplate<alignment>( pSrc,pSrcEnd,pDst );
+		}
+	}
+	void BltAlphaPremultipliedSSESrcDstAligned( Vei2 dstPt,const RectI& srcRect,const Surface& src )
+	{
+		// constants
+		const __m128i zero = _mm_setzero_si128();
+		const __m128i alphaShuffleLo = _mm_set_epi8(
+			128u,128u,128u,7u,128u,7u,128u,7u,
+			128u,128u,128u,3u,128u,3u,128u,3u );
+		const __m128i alphaShuffleHi = _mm_set_epi8(
+			128u,128u,128u,15u,128u,15u,128u,15u,
+			128u,128u,128u,11u,128u,11u,128u,11u );
+		const auto DoBlend = [=]( const __m128i dstPixels,const __m128i srcPixels )
+		{
+			const __m128i dstLo16 = _mm_unpacklo_epi8( zero,dstPixels );
+			const __m128i dstHi16 = _mm_unpackhi_epi8( zero,dstPixels );
+			const __m128i calphaLo = _mm_shuffle_epi8( srcPixels,alphaShuffleLo );
+			const __m128i calphaHi = _mm_shuffle_epi8( srcPixels,alphaShuffleHi );
+			const __m128i rsltDstLo16 = _mm_mulhi_epu16( dstLo16,calphaLo );
+			const __m128i rsltDstHi16 = _mm_mulhi_epu16( dstHi16,calphaHi );
+			const __m128i rsltDst = _mm_packus_epi16( rsltDstLo16,rsltDstHi16 );
+			const __m128i rslt = _mm_add_epi8( rsltDst,srcPixels );
+			return rslt;
+		};
+
+		const int srcPitch = int( src.GetPixelPitch() );
+		const int dstPitch = int( GetPixelPitch() );
+		for( int ySrc = srcRect.top,ySrcEnd = srcRect.bottom,yDst = dstPt.y;
+			ySrc < ySrcEnd; ySrc++,yDst++ )
+		{
+			const __m128i* pSrc = reinterpret_cast<const __m128i*>(
+				&src.GetBufferConst()[srcRect.left + srcPitch * ySrc] );
+			// divide by 4 because were working with 128-bit pointer arithmetic
+			const __m128i* const pSrcEnd = pSrc + srcRect.GetWidth() / 4;
+			__m128i* pDst = reinterpret_cast<__m128i*>(
+				&GetBuffer()[dstPt.x + dstPitch * yDst] );
+			for( ; pSrc < pSrcEnd; pSrc++,pDst++ )
+			{
+				_mm_store_si128( pDst,DoBlend( _mm_load_si128( pDst ) ,_mm_load_si128( pSrc ) ) );
+			}
+		}
+	}
+	void BltAlphaPremultipliedSSESrcDstAlignedRow( const __m128i*& pSrc,
+		const __m128i* const pSrcEnd,__m128i*& pDst )
+	{
+		// constants
+		const __m128i zero = _mm_setzero_si128();
+		const __m128i alphaShuffleLo = _mm_set_epi8(
+			128u,128u,128u,7u,128u,7u,128u,7u,
+			128u,128u,128u,3u,128u,3u,128u,3u );
+		const __m128i alphaShuffleHi = _mm_set_epi8(
+			128u,128u,128u,15u,128u,15u,128u,15u,
+			128u,128u,128u,11u,128u,11u,128u,11u );
+		const auto DoBlend = [=]( const __m128i dstPixels,const __m128i srcPixels )
+		{
+			const __m128i dstLo16 = _mm_unpacklo_epi8( zero,dstPixels );
+			const __m128i dstHi16 = _mm_unpackhi_epi8( zero,dstPixels );
+			const __m128i calphaLo = _mm_shuffle_epi8( srcPixels,alphaShuffleLo );
+			const __m128i calphaHi = _mm_shuffle_epi8( srcPixels,alphaShuffleHi );
+			const __m128i rsltDstLo16 = _mm_mulhi_epu16( dstLo16,calphaLo );
+			const __m128i rsltDstHi16 = _mm_mulhi_epu16( dstHi16,calphaHi );
+			const __m128i rsltDst = _mm_packus_epi16( rsltDstLo16,rsltDstHi16 );
+			const __m128i rslt = _mm_add_epi8( rsltDst,srcPixels );
+			return rslt;
+		};
+		for( ; pSrc < pSrcEnd; pSrc++,pDst++ )
+		{
+			_mm_store_si128( pDst,DoBlend( _mm_load_si128( pDst ),_mm_load_si128( pSrc ) ) );
+		}
+	}
+
 protected:
 	Color* buffer;
 	unsigned int width;

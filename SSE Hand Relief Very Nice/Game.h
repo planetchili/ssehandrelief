@@ -40,11 +40,12 @@ private:
 	D3DGraphics gfx;
 	KeyboardClient kbd;
 	MouseClient mouse;
-	Surface dice;
 	Surface bees;
-	Surface marle;
 	Surface flare;
+	std::vector<std::pair<RectI,Vei2>> jobs;
 	unsigned char alpha = 127;
 	std::wofstream logFile;
 	FrameTimer ft;
+	Vei2 ptk = { 0,0 };
+	RectI rectBase = { 65,258,46,256 };
 };
